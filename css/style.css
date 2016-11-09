@@ -1,0 +1,39 @@
+/*.3DcssDIV {
+  width: 100%;
+  height: 100%;
+}*/
+
+.glyphicon-remove {
+  cursor: pointer;
+}
+
+.optionsPanel {
+  overflow: scroll;
+  font-size: 0.9em;
+}
+
+.wrapper {
+  width: 100%;
+  height: 100%;
+  font-size: 0.9em;
+  overflow: visible;
+  /*background-color: red;*/
+}
+
+.inputWrapper {
+  border: solid 1px;
+  overflow: hidden;
+  margin: 0px;
+  /*width: 100%;*/
+  /*padding: 3px;*/
+}
+
+.inputTag {
+  float: left;
+  /*border-right: solid 1px;*/
+}
+
+.inputField {
+  float: right;
+  width: 50%;
+}

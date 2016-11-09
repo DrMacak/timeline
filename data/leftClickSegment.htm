@@ -1,0 +1,40 @@
+<!-- FOR DEBUG -->
+<!-- <link rel="stylesheet" href="../css/style.css" type="text/css"/>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css"/> -->
+<!-- FOR DEBUG -->
+
+
+<div class="optionsPanel">
+
+  <!-- TimeDiv should contain time where clicked -->
+  <div class="timeDiv"></div>
+
+  <div id="dataDiv" class="panel panel-primary">
+
+    <div class="panel-heading">
+      Do you wish to create new panel?
+      <span onclick="Err()" class="glyphicon glyphicon-remove pull-right" aria-hidden="true"></span>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- BUTTON START-->
+      <button class="btn startBtn" type="button" onclick="Err()">
+        <!-- <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> -->
+        <strong>ADD DATA</strong>
+      </button>
+      <!-- BUTTON END-->
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+  function Err(){
+    // alert("ERROR: Sorry, somthing went horribly wrong.")
+    console.log("ERROR: Correct JS function was not initialized for this element!");
+  }
+</script>

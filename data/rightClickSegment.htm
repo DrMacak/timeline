@@ -1,0 +1,73 @@
+<!-- FOR DEBUG -->
+<!-- <link rel="stylesheet" href="../css/style.css" type="text/css"/>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css"/> -->
+<!-- FOR DEBUG -->
+
+
+<div class="optionsPanel">
+
+  <!-- TimeDiv should contain time where clicked -->
+  <div class="timeDiv"></div>
+
+  <div id="dataDiv" class="panel panel-primary">
+
+    <div class="panel-heading">
+      Segment settings
+      <span onclick="Err()" class="glyphicon glyphicon-remove pull-right" aria-hidden="true"></span>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- BUTTON START-->
+      <button class="btn startBtn" type="button" onclick="Err()">
+        <!-- <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> -->
+        <strong>Start new segment</strong>
+      </button>
+      <!-- BUTTON END-->
+
+      <!-- BUTTON START-->
+      <button class="delBtn btn" type="button" onclick="Err()">
+        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+        <strong>Delete</strong>
+      </button>
+      <!-- BUTTON END-->
+
+
+      <!-- INPUT START-->
+      <label for="basic-url">Set color for segment</label>
+      <div class="input-group">
+        <span class="input-group-addon" id="basic-addon3">#</span>
+        <input type="text" class="colInp form-control " onchange="Err()" aria-describedby="basic-addon3">
+      </div>
+      <!-- INPUT END-->
+
+      <!-- INPUT START-->
+      <label for="basic-url">Set segment start</label>
+      <div class="input-group">
+        <span class="input-group-addon" id="basic-addon3">Date</span>
+        <input type="text" class="form-control" onchange="Err()" aria-describedby="basic-addon3">
+      </div>
+      <!-- INPUT END-->
+
+
+      <!-- INPUT START-->
+      <label for="basic-url">Set segment start</label>
+      <div class="input-group">
+        <span class="input-group-addon" id="basic-addon3">Date</span>
+        <input type="text" class="form-control" onchange="Err()" aria-describedby="basic-addon3">
+      </div>
+      <!-- INPUT END-->
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+  function Err(){
+    // alert("ERROR: Sorry, somthing went horribly wrong.")
+    console.log("ERROR: Correct JS function was not initialized for this element!");
+  }
+</script>
