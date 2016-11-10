@@ -895,6 +895,10 @@ function init(birthDate){
 
   cssRenderer.domElement.appendChild(renderer.domElement);
 
+  // DEBUG
+  cssRenderer.domElement.appendChild( stats.dom );
+  // DEBUG
+
   scene = new THREE.Scene();
   cssScene = new THREE.Scene();
 
@@ -1192,7 +1196,16 @@ function doAction (action, onObject, mousePointer) {
 
     freePanel.putTemplate(action + helix.o.type, helix);
 
-    // camera.lookAt(freePanel.plane.position);
+    freePanel.plane.lookAt(camera.position);
+    freePanel.css3d.lookAt(camera.position);
+
+    freePanel.plane.rotation.x = camera.rotation.x;
+    freePanel.plane.rotation.y = camera.rotation.y;
+    freePanel.plane.rotation.z = camera.rotation.z;
+    freePanel.css3d.rotation.x = camera.rotation.x;
+    freePanel.css3d.rotation.y = camera.rotation.y;
+    freePanel.css3d.rotation.z = camera.rotation.z;
+
 
   } else if (action.indexOf('leftClick') >= 0) {
     // generate mediaPanel
@@ -1260,6 +1273,9 @@ function render() {
   // tubeMesh.rotation.z = timer * 2.5;
 
   renderer.render(scene, camera);
+  // DEBUG
+  stats.update();
+  // DEBUG
   cssRenderer.render(cssScene, camera);
 }
 

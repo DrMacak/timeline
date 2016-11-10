@@ -6,6 +6,8 @@
 var infoLogging = true;
 var debugLoging = true;
 
+var stats;
+
 function infoLog(txt) {
   if (infoLogging) {console.log("INFO:"+txt);}
 }
@@ -43,3 +45,7 @@ function createGUI (circleObj) {
 				// gui.add( effectController, "rotationZ", -Math.PI*2, Math.PI*2, 0.1 ).onChange( valuesChanger );
 				gui.close();
 }
+
+
+  stats = new Stats();
+  // container.appendChild( stats.dom );
