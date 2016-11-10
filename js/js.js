@@ -412,7 +412,6 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
       for (var i=0; i < removedSegments.length; i++){
         changedSegments.push(removedSegments[i].o.uuid);
       }
-
     }
 
     debugLog(changedSegments);
@@ -480,7 +479,7 @@ function The3DpanelCONSTR (options) {
   this.html = undefined;
   this.line = undefined;
 
-  this._createPlane = function (w, h, position, rotation) {
+  this._createPlane = function ( ) {
 
     var material = new THREE.MeshBasicMaterial({
      color: 0x000000,
@@ -488,84 +487,58 @@ function The3DpanelCONSTR (options) {
      side: THREE.DoubleSide
     });
 
-   var geometry = new THREE.RoundedSquare(w, h);
+   var geometry = new THREE.RoundedSquare( this.o.width, this.o.height );
    var mesh = new THREE.Mesh(geometry, material);
 
-   mesh.position = position;
-   mesh.rotation.x = rotation.x;
-   mesh.rotation.y = rotation.y;
-   mesh.rotation.z = rotation.z;
+   mesh.position.copy( this.o.position );
+   mesh.rotation.x = this.o.rotation.x;
+   mesh.rotation.y = this.o.rotation.y;
+   mesh.rotation.z = this.o.rotation.z;
 
-   return mesh;
-  }
+   this.plane = mesh;
 
-  this._createCssObject = function (position, rotation, filledTemplate) {
-
-    var cssObject = new THREE.CSS3DObject( filledTemplate );
-
-    cssObject.position = position;
-    cssObject.rotation.x = rotation.x;
-    cssObject.rotation.y = rotation.y;
-    cssObject.rotation.z = rotation.z;
-
-    return cssObject;
+   this.plane.dad = this;
 
   }
 
-  this._createLine = function (position) {
-    // I have to know offset bro.
-  }
+  this._createCssObject = function ( ) {
 
-  this.create3dPanel = function() {
+    var cssObject = new THREE.CSS3DObject( this.html );
 
-    if ( this.o.template.indexOf('rightClick') >= 0 || this.o.template == "default" ) {
-      this.o.type = "FreePanel";
-    } else {
-      this.o.type = "FixPanel";
-    }
-
-    infoLog(" Creating html panel with html from template: "+this.template);
-
-    var plane = self._createPlane( this.o.width, this.o.height, this.o.position, this.o.rotation);
-
-    this.plane = plane;
-
-    this.plane.dad = this;
-
-    var emptyTemplate = templatesG[this.o.template];
-
-    var filledTemplate = self._setTemplateElements( this.o.width, this.o.height, emptyTemplate, this.o.thatsOpts, this.plane.uuid );
-
-    this.html = filledTemplate;
-
-    infoLog(this.html);
-
-    var cssObject = self._createCssObject(this.o.position, this.o.rotation, this.html);
-
-    cssObject.uuid = plane.uuid;
-
-    this.o.uuid = plane.uuid;
+    cssObject.position.copy( this.o.position );
+    cssObject.rotation.x = this.o.rotation.x;
+    cssObject.rotation.y = this.o.rotation.y;
+    cssObject.rotation.z = this.o.rotation.z;
 
     this.css3d = cssObject;
 
     this.css3d.dad = this;
+
+    // return cssObject;
+
   }
 
-  this._setTemplateElements = function (w, h, html, objectInfo, planeID ) {
+  this._setTemplateElements = function ( ) {
 
-    var info = objectInfo;
+    var tempHTML = templatesG[this.o.template];
+
+    var info = undefined;
+
+    if (this.o.buddy !== undefined ) {
+      info = this.o.buddy.o;
+    }
 
     infoLog(" setting Template for options: ");
     infoLog(info);
 
     // Creating container div
     var div = document.createElement('div');
-    div.innerHTML = html;
+    div.innerHTML = tempHTML;
 
-    div.style.width = w;
-    div.style.height = h;
+    div.style.width = this.o.width;
+    div.style.height = this.o.height;
 
-   //  div.setAttribute("myPlaneID", planeID);
+    //  div.setAttribute("myPlaneID", planeID);
 
     //  Delete Button
     if (div.getElementsByClassName('delBtn')[0] !== undefined ) {
@@ -587,15 +560,86 @@ function The3DpanelCONSTR (options) {
       colInp.setAttribute("onchange", "changeObjectPars('"+ info.uuid + "ColInp" +"')");
     }
 
-
-    return div;
+    this.html = div;
+    // return div;
   }
 
-  this._decToColor = function (dec) {
+  this._createLine = function ( ) {
+
+    var lineGeometry = new THREE.Geometry();
+
+    // Start on center of helix
+    lineGeometry.vertices.push(new THREE.Vector3(0,0,0));
+    // ends on edge of panel
+    lineGeometry.vertices.push(new THREE.Vector3(500,300,100));
+
+    var line = new THREE.Line(lineGeometry);
+
+    scene.add(line);
+  }
+
+  this._createPositionRing = function ( ) {
+    // similiar to pointer donut. But static on time, where mediapanel is placed
+  }
+
+  this.create3dPanel = function() {
+
+    if ( this.o.template.indexOf('rightClick') >= 0 || this.o.template == "default" ) {
+      this.o.type = "FreePanel";
+    } else {
+      this.o.type = "FixPanel";
+    }
+
+    infoLog(" Creating html panel with html from template: " + this.template);
+
+    self._createPlane();
+
+    self._setTemplateElements( );
+
+    infoLog(this.html);
+
+    self._createCssObject( );
+
+    this.css3d.uuid = this.plane.uuid;
+
+    this.o.uuid = this.plane.uuid;
+  }
+
+  this._decToColor = function ( dec ) {
       return Math.floor(dec).toString(16).replace("0x","#").toUpperCase() ;
   }
 
-  this.putTemplate = function (templateN, object) {
+  this.updateObject = function ( newOptions ) {
+
+    var newO = newOptions;
+
+    if ( newO.uuid !== this.o.uuid ) {
+      this.o.uuid = newO.uuid;
+    }
+
+    if ( newO.template !== this.o.template ) {
+      this.o.template = newO.template;
+      // self.putTemplate()
+    }
+
+    if ( newO.width !== this.o.width ) {
+      this.o.width = newO.width;
+    }
+    // this.type = "FreePanel",
+    // this.uuid = "",
+    // this.template = "default",
+    // this.width = 250,
+    // this.height = 150,
+    // this.position = new THREE.Vector3(0, 0, 0),
+    // this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
+    // this.timePosition = 0,
+    // this.color = 0xFFFFFF,
+    // this.visible = true,
+    // this.transparency = 0,
+    // this.buddy = undefined
+  }
+
+  this.putTemplate = function ( templateN, object ) {
 
     this.o.template = templateN;
 
@@ -610,25 +654,7 @@ function The3DpanelCONSTR (options) {
     this.html.innerHTML = filledTemplate.innerHTML;
   }
 
-  // this.getInfo = function () {
-  //   // info = new objectInfoCONST();
-  //   // info.width = this.width;
-  //   // info.height = this.height;
-  //   // info.visible = this.plane.visible;
-  //   // info.template = this.template;
-  //   //
-  //   // if (this.template.indexOf('rightClick') >= 0 || "default" == this.template) {
-  //   //   newObject.type = "freePanel";
-  //   //   // newObject.visible = false;
-  //   // } else {
-  //   //   newObject.type = "fixPanel";
-  //   //   // newObject.visible = true;
-  //   // }
-  //   //
-  //   // return info;
-  // }
-
-  this.setRotationY = function (angle) {
+  this.setRotationY = function ( angle ) {
 
     this.plane.rotation.y = angle;
     this.css3d.rotation.y = angle;
@@ -636,7 +662,7 @@ function The3DpanelCONSTR (options) {
 
   }
 
-  this.setPosition = function (newPosition) {
+  this.setPosition = function ( newPosition ) {
 
     this.plane.position.copy(newPosition);
     this.css3d.position.copy(newPosition);
@@ -645,7 +671,7 @@ function The3DpanelCONSTR (options) {
 
   }
 
-  this.setSize = function (w, h) {
+  this.setSize = function ( w, h ) {
 
     // var thisW = this.o.width;
     // var thisH = this.o.height;
@@ -673,7 +699,7 @@ function The3DpanelCONSTR (options) {
     this.plane.geometry = new THREE.RoundedSquare(w, h);
   }
 
-  this.visible = function (visible) {
+  this.visible = function ( visible ) {
 
     if (visible) {
 
@@ -691,6 +717,7 @@ function The3DpanelCONSTR (options) {
 
   }
 
+  // create 3D panel during init.
   this.create3dPanel();
 }
 
@@ -749,6 +776,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
 
   this.scene3d = scene;
   this.css3dScene = cssScene;
+
   this.panelConstructor = panelConst;
   this.pointerConstructor = pointerConst;
 
@@ -764,7 +792,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     this.color = 0xFFFFFF,
     this.visible = true,
     this.transparency = 0,
-    this.thatsOpts = ""
+    this.buddy = undefined
   }
 
   function pointerOptionsCONST () {
@@ -796,37 +824,71 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
 
   this.removeObject = function ( object ) {
 
+    infoLog("Removing object:");
+    infoLog(object);
+
     var index = this.objects.indexOf( object );
 
     this.scene3d.remove( object.mesh );
+    this.css3dScene.remove( object.css3d );
 
     this.objects.splice( index, 1 );
 
   }
 
-  this.fetchFreePanel = function () {
+  this.placePanel = function ( action, onObject, mousePointer ) {
 
     var freePanel = self.isTypeInList("FreePanel");
 
-      if (freePanel !== false) {
+    if (freePanel !== false) {
+      self.removeObject(freePanel);
+    }
 
-        freePanel.visible(true);
+    var newOpts = new objectOptionsCONST ();
 
-        return freePanel;
-      }
+    newOpts.buddy = onObject;
 
-    //  If not found we have to create new default free panel.
-    var defOptions = new objectOptionsCONST();
-    freePanel = new self.panelConstructor(defOptions);
+    var xOffset = newOpts.width/2 + onObject.o.thickness;
+    var yOffset = newOpts.height/2 + onObject.o.thickness;
 
-    this.scene3d.add(freePanel.plane);
-    this.css3dScene.add(freePanel.css3d);
+    var centerPoint = onObject.getCenterFromSurface(mousePointer);
+    var offsetPoint = onObject.getCenterFromSurface(mousePointer, xOffset, yOffset);
 
-    this.objects.push(freePanel);
+    newOpts.position =  offsetPoint;
 
-    //  freePanel[0].visible = false;
+    newOpts.rotation = new THREE.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
-    return freePanel;
+    newOpts.template = action + onObject.o.type;
+    //
+    // self.setPosition(offsetPoint);
+    //
+    // self.setRotationY(helix.getAngle(centerPoint));
+
+    // self.putTemplate(action + helix.o.type, helix);
+    //
+    // // freePanel.plane.lookAt(camera.position);
+    // // freePanel.css3d.lookAt(camera.position);
+    //
+    // freePanel.plane.rotation.x = camera.rotation.x;
+    // freePanel.plane.rotation.y = camera.rotation.y;
+    // freePanel.plane.rotation.z = camera.rotation.z;
+    // freePanel.css3d.rotation.x = camera.rotation.x;
+    // freePanel.css3d.rotation.y = camera.rotation.y;
+    // freePanel.css3d.rotation.z = camera.rotation.z;
+
+    return self.createPanel( newOpts );
+  }
+
+  this.createPanel = function ( options ) {
+
+    var newPanel = new self.panelConstructor( options );
+
+    this.scene3d.add(newPanel.plane);
+    this.css3dScene.add(newPanel.css3d);
+
+    this.objects.push(newPanel);
+
+    return newPanel;
   }
 
   this.placePointerOnHelix = function (helix, mousePoint) {
@@ -880,6 +942,11 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
 
   }
 }
+
+///////////////////////////////////////////////////////////////////
+// Main INIT
+//
+///////////////////////////////////////////////////////////////////
 
 function init(birthDate){
 
@@ -1046,8 +1113,8 @@ function deleteObjectWRP (uuid) {
   if (object.o.type == "Segment"){
     Segments.removeSegment (object);
   }
-  var freePanel = Panels.fetchFreePanel();
-  freePanel.visible(false);
+  // var freePanel = Panels.fetchFreePanel();
+  // freePanel.visible(false);
   // hidePanel("setPanel");
 }
 
@@ -1178,33 +1245,37 @@ function doAction (action, onObject, mousePointer) {
 
   if (action.indexOf('rightClick') >= 0) {
 
-    var freePanel = Panels.fetchFreePanel();
+    // var freePanel = Panels.fetchFreePanel( panelOptins );
+    // new Panels.
 
-    console.log(freePanel);
+    var freePanel = Panels.placePanel( action, helix, mousePointer );
 
-    freePanel.setSize( 500, 250 );
 
-    var xOffset = freePanel.o.width/2 + helix.o.thickness;
-    var yOffset = freePanel.o.height/2 + helix.o.thickness;
-
-    var centerPoint = helix.getCenterFromSurface(mousePointer);
-    var offsetPoint = helix.getCenterFromSurface(mousePointer, xOffset, yOffset)
-
-    freePanel.setPosition(offsetPoint);
-
-    freePanel.setRotationY(helix.getAngle(centerPoint));
-
-    freePanel.putTemplate(action + helix.o.type, helix);
-
-    freePanel.plane.lookAt(camera.position);
-    freePanel.css3d.lookAt(camera.position);
-
-    freePanel.plane.rotation.x = camera.rotation.x;
-    freePanel.plane.rotation.y = camera.rotation.y;
-    freePanel.plane.rotation.z = camera.rotation.z;
-    freePanel.css3d.rotation.x = camera.rotation.x;
-    freePanel.css3d.rotation.y = camera.rotation.y;
-    freePanel.css3d.rotation.z = camera.rotation.z;
+    // console.log(freePanel);
+    //
+    // freePanel.setSize( 500, 250 );
+    //
+    // var xOffset = freePanel.o.width/2 + helix.o.thickness;
+    // var yOffset = freePanel.o.height/2 + helix.o.thickness;
+    //
+    // var centerPoint = helix.getCenterFromSurface(mousePointer);
+    // var offsetPoint = helix.getCenterFromSurface(mousePointer, xOffset, yOffset)
+    //
+    // freePanel.setPosition(offsetPoint);
+    //
+    // freePanel.setRotationY(helix.getAngle(centerPoint));
+    //
+    // freePanel.putTemplate(action + helix.o.type, helix);
+    //
+    // // freePanel.plane.lookAt(camera.position);
+    // // freePanel.css3d.lookAt(camera.position);
+    //
+    // freePanel.plane.rotation.x = camera.rotation.x;
+    // freePanel.plane.rotation.y = camera.rotation.y;
+    // freePanel.plane.rotation.z = camera.rotation.z;
+    // freePanel.css3d.rotation.x = camera.rotation.x;
+    // freePanel.css3d.rotation.y = camera.rotation.y;
+    // freePanel.css3d.rotation.z = camera.rotation.z;
 
 
   } else if (action.indexOf('leftClick') >= 0) {
