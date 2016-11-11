@@ -261,6 +261,19 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
   // list of segments
   this.segments = [];
 
+  this.getByProp = function ( prop, value) {
+
+    infoLog("Looking for prop: "+prop+ " val: "+ value);
+    for (var i = 0; i < this.segments.length; i++) {
+
+        if (this.segments[i]["o"][prop] == value) {
+          return this.segments[i];
+        }
+
+    }
+
+    return undefined;
+  }
   // Put one segment to scene
   this.addSegmentToScene = function (options) {
 
@@ -540,13 +553,20 @@ function The3DpanelCONSTR (options) {
 
     //  div.setAttribute("myPlaneID", planeID);
 
+    //  Closing cross
+    if (div.getElementsByClassName('glyphicon-remove')[0] !== undefined ) {
+      infoLog("glyphicon-remove found");
+      var closeCross = div.getElementsByClassName('glyphicon-remove')[0];
+      closeCross.setAttribute("onclick", "deleteObjectWRP(['" + this.o.uuid + "'])");
+    }
+
     //  Delete Button
     if (div.getElementsByClassName('delBtn')[0] !== undefined ) {
       infoLog("delBtn found");
       var delBtn = div.getElementsByClassName('delBtn')[0];
       delBtn.innerHTML = "Delete " + info.uuid + " ?";
       delBtn.style.cssText = ("background-color: " +   self._decToColor(info.color));
-      delBtn.setAttribute("onclick", "deleteObjectWRP('" + info.uuid + "')");
+      delBtn.setAttribute("onclick", "deleteObjectWRP(['" + info.uuid + "','" + this.o.uuid + "'])");
     }
 
     //  Color Input field
@@ -561,7 +581,6 @@ function The3DpanelCONSTR (options) {
     }
 
     this.html = div;
-    // return div;
   }
 
   this._createLine = function ( ) {
@@ -593,16 +612,14 @@ function The3DpanelCONSTR (options) {
     infoLog(" Creating html panel with html from template: " + this.template);
 
     self._createPlane();
-
-    self._setTemplateElements( );
-
-    infoLog(this.html);
-
-    self._createCssObject( );
-
-    this.css3d.uuid = this.plane.uuid;
-
     this.o.uuid = this.plane.uuid;
+
+    self._setTemplateElements();
+
+    debugLog(this.html);
+
+    self._createCssObject();
+    this.css3d.uuid = this.plane.uuid;
   }
 
   this._decToColor = function ( dec ) {
@@ -784,8 +801,8 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     this.type = "FreePanel",
     this.uuid = "",
     this.template = "default",
-    this.width = 250,
-    this.height = 150,
+    this.width = 350,
+    this.height = 250,
     this.position = new THREE.Vector3(0, 0, 0),
     this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
     this.timePosition = 0,
@@ -822,6 +839,19 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     return false;
   }
 
+  this.getByProp = function ( prop, value ) {
+    infoLog("Looking for prop: "+prop+ " val: "+ value);
+    for (var i = 0; i < this.objects.length; i++) {
+
+        if (this.objects[i]["o"][prop] == value) {
+          return this.objects[i];
+        }
+
+    }
+
+    return undefined;
+  }
+
   this.removeObject = function ( object ) {
 
     infoLog("Removing object:");
@@ -829,7 +859,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
 
     var index = this.objects.indexOf( object );
 
-    this.scene3d.remove( object.mesh );
+    this.scene3d.remove( object.plane );
     this.css3dScene.remove( object.css3d );
 
     this.objects.splice( index, 1 );
@@ -838,10 +868,10 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
 
   this.placePanel = function ( action, onObject, mousePointer ) {
 
-    var freePanel = self.isTypeInList("FreePanel");
+    var freePanel = self.getByProp( "type", "FreePanel" );
 
-    if (freePanel !== false) {
-      self.removeObject(freePanel);
+    if ( freePanel !== undefined ) {
+      self.removeObject( freePanel );
     }
 
     var newOpts = new objectOptionsCONST ();
@@ -851,7 +881,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     var xOffset = newOpts.width/2 + onObject.o.thickness;
     var yOffset = newOpts.height/2 + onObject.o.thickness;
 
-    var centerPoint = onObject.getCenterFromSurface(mousePointer);
+    // var centerPoint = onObject.getCenterFromSurface(mousePointer);
     var offsetPoint = onObject.getCenterFromSurface(mousePointer, xOffset, yOffset);
 
     newOpts.position =  offsetPoint;
@@ -859,22 +889,6 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     newOpts.rotation = new THREE.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
     newOpts.template = action + onObject.o.type;
-    //
-    // self.setPosition(offsetPoint);
-    //
-    // self.setRotationY(helix.getAngle(centerPoint));
-
-    // self.putTemplate(action + helix.o.type, helix);
-    //
-    // // freePanel.plane.lookAt(camera.position);
-    // // freePanel.css3d.lookAt(camera.position);
-    //
-    // freePanel.plane.rotation.x = camera.rotation.x;
-    // freePanel.plane.rotation.y = camera.rotation.y;
-    // freePanel.plane.rotation.z = camera.rotation.z;
-    // freePanel.css3d.rotation.x = camera.rotation.x;
-    // freePanel.css3d.rotation.y = camera.rotation.y;
-    // freePanel.css3d.rotation.z = camera.rotation.z;
 
     return self.createPanel( newOpts );
   }
@@ -982,7 +996,7 @@ function init(birthDate){
   var VIEW_ANGLE = 45,
     ASPECT = window.innerWidth / window.innerHeight,
     NEAR = 0.1,
-    FAR = 10000;
+    FAR = 100000;
 
   camera = new THREE.PerspectiveCamera(
       VIEW_ANGLE,
@@ -1108,14 +1122,30 @@ function init(birthDate){
 //
 ///////////////////////////////////////////////////////////////////
 
-function deleteObjectWRP (uuid) {
-  var object = scene.getObjectByProperty("uuid", uuid).dad;
-  if (object.o.type == "Segment"){
-    Segments.removeSegment (object);
+function deleteObjectWRP ( uuids ) {
+
+  for (var i=0; i < uuids.length; i++ ) {
+
+    var uuid = uuids[i];
+
+    var segment = Segments.getByProp("uuid", uuid);
+
+    if ( segment !== undefined ){
+
+      Segments.removeSegment ( segment );
+
+      Panels.getByProp( "type", "Pointer" ).visible(false);
+
+    }
+
+    var panel = Panels.getByProp("uuid", uuid);
+
+    if ( panel !== undefined) {
+
+      Panels.removeObject( panel );
+
+    }
   }
-  // var freePanel = Panels.fetchFreePanel();
-  // freePanel.visible(false);
-  // hidePanel("setPanel");
 }
 
 function changeSegmentWRP (segInfo) {
@@ -1245,38 +1275,7 @@ function doAction (action, onObject, mousePointer) {
 
   if (action.indexOf('rightClick') >= 0) {
 
-    // var freePanel = Panels.fetchFreePanel( panelOptins );
-    // new Panels.
-
     var freePanel = Panels.placePanel( action, helix, mousePointer );
-
-
-    // console.log(freePanel);
-    //
-    // freePanel.setSize( 500, 250 );
-    //
-    // var xOffset = freePanel.o.width/2 + helix.o.thickness;
-    // var yOffset = freePanel.o.height/2 + helix.o.thickness;
-    //
-    // var centerPoint = helix.getCenterFromSurface(mousePointer);
-    // var offsetPoint = helix.getCenterFromSurface(mousePointer, xOffset, yOffset)
-    //
-    // freePanel.setPosition(offsetPoint);
-    //
-    // freePanel.setRotationY(helix.getAngle(centerPoint));
-    //
-    // freePanel.putTemplate(action + helix.o.type, helix);
-    //
-    // // freePanel.plane.lookAt(camera.position);
-    // // freePanel.css3d.lookAt(camera.position);
-    //
-    // freePanel.plane.rotation.x = camera.rotation.x;
-    // freePanel.plane.rotation.y = camera.rotation.y;
-    // freePanel.plane.rotation.z = camera.rotation.z;
-    // freePanel.css3d.rotation.x = camera.rotation.x;
-    // freePanel.css3d.rotation.y = camera.rotation.y;
-    // freePanel.css3d.rotation.z = camera.rotation.z;
-
 
   } else if (action.indexOf('leftClick') >= 0) {
     // generate mediaPanel
@@ -1307,6 +1306,8 @@ function render() {
   raycaster.setFromCamera( mouse, camera );
 
   var intersects = raycaster.intersectObjects( scene.children );
+
+  // if ( intersects.length == 0 ) {Panels.getByProp( "type", "Pointer" ).visible(false)};
 
     for (var i = 0; i < intersects.length; i++) {
 
