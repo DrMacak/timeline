@@ -62,7 +62,7 @@ function SegmentCONSTR (options) {
   // Function to generate helix points t is from 0 to 1. When pure true there is not T limit.
   this.helixFunction = function (t, pure, radiusOffset, zOffset) {
 
-    var Tl = self.tStrech( t );
+    var Tl = self._tStrech( t );
 
     if ( pure ) { Tl = t }
 
@@ -79,7 +79,7 @@ function SegmentCONSTR (options) {
   }
 
   // This method streatch input t (0 to 1) to fit the segment limits.
-  this.tStrech = function (t) {
+  this._tStrech = function (t) {
     var sT = t * (this.T2-this.T1) + this.T1;
     return sT;
   }
@@ -113,6 +113,14 @@ function SegmentCONSTR (options) {
 
     return z / this.slope;
 
+  }
+
+  this.getNiceTimeFromZ = function ( z ) {
+    var time = new Date();
+    time.setTime( self.getTimeFromPoint({z}) );
+    console.log(time);
+    var niceTime =  time.getDate() + "-" + time.getMonth() + "-" +time.getFullYear();
+    return niceTime;
   }
 
   // There is function for this in THREE js so obsolete?
@@ -490,7 +498,9 @@ function The3DpanelCONSTR (options) {
   this.css3d = undefined;
   this.plane = undefined;
   this.html = undefined;
+
   this.line = undefined;
+  this.ring = undefined;
 
   this._createPlane = function ( ) {
 
@@ -560,6 +570,14 @@ function The3DpanelCONSTR (options) {
       closeCross.setAttribute("onclick", "deleteObjectWRP(['" + this.o.uuid + "'])");
     }
 
+    //  Time label
+    if (div.getElementsByClassName('timeLabel')[0] !== undefined ) {
+      infoLog("timeLabel found");
+      var helix = this.o.buddy;
+      var timeLabel = div.getElementsByClassName('timeLabel')[0];
+      timeLabel.innerHTML = helix.getNiceTimeFromZ(this.o.timePosition);
+    }
+
     //  Delete Button
     if (div.getElementsByClassName('delBtn')[0] !== undefined ) {
       infoLog("delBtn found");
@@ -587,23 +605,46 @@ function The3DpanelCONSTR (options) {
 
     var lineGeometry = new THREE.Geometry();
 
+    var lineMaterial = new THREE.LineDashedMaterial({
+      //  linewidth: 100,
+	     color: 0x000000
+    });
+
+    var helix = this.o.buddy;
+
     // Start on center of helix
-    lineGeometry.vertices.push(new THREE.Vector3(0,0,0));
+    lineGeometry.vertices.push(helix.helixFunction(helix.getTFromZ(this.o.timePosition), true));
     // ends on edge of panel
-    lineGeometry.vertices.push(new THREE.Vector3(500,300,100));
+    lineGeometry.vertices.push(this.o.position);
 
-    var line = new THREE.Line(lineGeometry);
+    var line = new THREE.Line( lineGeometry, lineMaterial );
 
-    scene.add(line);
+    this.line = line;
+
+    // this.scene3d.add(line);
   }
 
   this._createPositionRing = function ( ) {
-    // similiar to pointer donut. But static on time, where mediapanel is placed
+
+    var helix = this.o.buddy;
+
+    var material = new THREE.MeshBasicMaterial( { color: 0x000000 });
+    var geometry = new THREE.TorusGeometry(helix.o.thickness, 10, 20, 100);
+    this.ring = new THREE.Mesh( geometry, material );
+
+    var helixCenter = helix.helixFunction(helix.getTFromZ(this.o.timePosition), true);
+
+    this.ring.position.copy( helixCenter );
+
+    var helixVector = helix.helixFunction(helix.getTFromZ(this.o.timePosition)+0.0001, true);
+
+    this.ring.lookAt( helixVector );
+
   }
 
   this.create3dPanel = function() {
 
-    if ( this.o.template.indexOf('rightClick') >= 0 || this.o.template == "default" ) {
+    if ( this.o.template.indexOf('rightClick') >= 0 || this.o.template == "default" || this.o.template.indexOf('mouseover') >= 0) {
       this.o.type = "FreePanel";
     } else {
       this.o.type = "FixPanel";
@@ -620,6 +661,9 @@ function The3DpanelCONSTR (options) {
 
     self._createCssObject();
     this.css3d.uuid = this.plane.uuid;
+
+    self._createLine();
+    self._createPositionRing();
   }
 
   this._decToColor = function ( dec ) {
@@ -860,6 +904,9 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     var index = this.objects.indexOf( object );
 
     this.scene3d.remove( object.plane );
+    this.scene3d.remove( object.line );
+    this.scene3d.remove( object.ring );
+
     this.css3dScene.remove( object.css3d );
 
     this.objects.splice( index, 1 );
@@ -881,10 +928,12 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     var xOffset = newOpts.width/2 + onObject.o.thickness;
     var yOffset = newOpts.height/2 + onObject.o.thickness;
 
-    // var centerPoint = onObject.getCenterFromSurface(mousePointer);
+    var centerPoint = onObject.getCenterFromSurface(mousePointer);
     var offsetPoint = onObject.getCenterFromSurface(mousePointer, xOffset, yOffset);
 
     newOpts.position =  offsetPoint;
+
+    newOpts.timePosition = centerPoint.z;
 
     newOpts.rotation = new THREE.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
@@ -898,6 +947,10 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     var newPanel = new self.panelConstructor( options );
 
     this.scene3d.add(newPanel.plane);
+
+    this.scene3d.add(newPanel.line);
+    this.scene3d.add(newPanel.ring);
+
     this.css3dScene.add(newPanel.css3d);
 
     this.objects.push(newPanel);
@@ -1029,10 +1082,15 @@ function init(birthDate){
 
 
   // Some geometry //
+  var lineMaterial = new THREE.LineDashedMaterial({
+      dashSize : 10,
+      gapSize : 5,
+      color: 0x000000
+  });
   var lineGeometry = new THREE.Geometry();
   lineGeometry.vertices.push(new THREE.Vector3(0,0,0));
   lineGeometry.vertices.push(new THREE.Vector3(500,300,100));
-  var line = new THREE.Line(lineGeometry);
+  var line = new THREE.Line(lineGeometry, lineMaterial);
 
   scene.add(line);
 
@@ -1303,6 +1361,8 @@ function animate() {
 
 function render() {
 
+  var action = "mouseover";
+
   raycaster.setFromCamera( mouse, camera );
 
   var intersects = raycaster.intersectObjects( scene.children );
@@ -1321,6 +1381,9 @@ function render() {
         if ( helix.o.type == "Segment" ){
 
           Panels.placePointerOnHelix( helix, intersects[ 0 ].point );
+
+          var timePanel = Panels.placePanel( action, helix, intersects[ 0 ].point);
+          timePanel.setSize(100, 50);
 
           break;
 
