@@ -4,7 +4,7 @@
 
 var templatesG = {};
 
-const templateFiles = ["rightClickSegment", "leftClickSegment", "rightClickPanel", "default"];
+const templateFiles = ["rightClickSegment", "leftClickSegment", "rightClickPanel", "default", "mouseoverSegment"];
 populateHtmlTemplates(templateFiles);
 
 function populateHtmlTemplates (templateFiles) {
