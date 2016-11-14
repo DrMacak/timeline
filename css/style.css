@@ -3,6 +3,10 @@
   height: 100%;
 }*/
 
+.panel {
+  background-color: grey;
+}
+
 .glyphicon-remove {
   cursor: pointer;
 }

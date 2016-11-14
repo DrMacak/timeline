@@ -16,7 +16,7 @@ var birthDateINP = new Date("03 24 2013");
 
 // List of segments. Segments are by default years and part before birth and after present.
 // Plus user selected time segments, these are stored in user or backend storage
-var Segments;
+var Helix;
 
 // List of panels and other non-segment objects.
 var Panels;
@@ -29,35 +29,13 @@ var segDurationG = 0;
 //
 ///////////////////////////////////////////////////////////////////
 
-function SegmentCONSTR (options) {
+function SegmentCONSTR ( options ) {
 
   var self = this;
 
   this.o = options;
 
-  // Whole helix
-  this.startDate = 0;
-  this.endDate = 0;
-
-  // T limits for generating only segment of whole helix
-  this.T1 = 0;
-  this.T2 = 1;
-
-  //height
-  this.slope = 0;
-  // When slope is inited its too much because its ms of time so it should be reduced.
-  var slopeReduce = 100000000/2;
-
   this.Mesh = undefined;
-
-  // Initiliazing function with help of birth date.
-  this.init = function(bDate) {
-    var now = new Date();
-    this.startDate = new Date("01 01 " + bDate.getFullYear());
-    this.endDate = new Date("12 31 " + now.getFullYear());
-    this.slope = (this.endDate - this.startDate)/slopeReduce;
-    this.rotations = now.getFullYear() - bDate.getFullYear() + 1;
-  }
 
   // Function to generate helix points t is from 0 to 1. When pure true there is not T limit.
   this.helixFunction = function (t, pure, radiusOffset, zOffset) {
@@ -66,21 +44,21 @@ function SegmentCONSTR (options) {
 
     if ( pure ) { Tl = t }
 
-    var radius = radiusOffset + this.o.radius || this.o.radius;
+    var radius = radiusOffset + this.o.helix.radius || this.o.helix.radius;
     var zOffLoc = zOffset || 0;
 
-    var Tpi = Tl*(Math.PI*2)*this.rotations;
+    var Tpi = Tl*(Math.PI*2)*this.o.helix.rotations;
 
     var tx = Math.cos( Tpi ) * radius,
         ty = Math.sin( Tpi ) * radius,
-        tz = this.slope * Tl + zOffLoc;
+        tz = this.o.helix.height * Tl + zOffLoc;
 
     return new THREE.Vector3( tx, ty, tz );
   }
 
   // This method streatch input t (0 to 1) to fit the segment limits.
   this._tStrech = function (t) {
-    var sT = t * (this.T2-this.T1) + this.T1;
+    var sT = t * (this.o.T2-this.o.T1) + this.o.T1;
     return sT;
   }
 
@@ -91,37 +69,6 @@ function SegmentCONSTR (options) {
       return self.helixFunction( t );
    }
   );
-
-  // Set upper and lower T limit for segment. Based on segment times of end/start
-  this.setSegment =  function(segStart, segEnd) {
-
-     this.T1 = self.getTFromZ((segStart - this.startDate ) / slopeReduce);
-     this.T2 = self.getTFromZ((segEnd - this.startDate ) / slopeReduce);
-
-  }
-
-  this.getTimeFromPoint = function (point) {
-
-    return (self.getTFromZ(point.z) * this.slope * slopeReduce + this.startDate.getTime());
-
-  }
-
-  this.getTFromZ = function (z) {
-
-    if (z > this.slope) {infoLog("Warning - T from Z: z is too high returning 1. z: " + z); return 1;}
-    if (z < 0) {infoLog("Warning - T from Z: z is too low returning 0. z: " + z); return 0;}
-
-    return z / this.slope;
-
-  }
-
-  this.getNiceTimeFromZ = function ( z ) {
-    var time = new Date();
-    time.setTime( self.getTimeFromPoint({z}) );
-    console.log(time);
-    var niceTime =  time.getDate() + "-" + time.getMonth() + "-" +time.getFullYear();
-    return niceTime;
-  }
 
   // There is function for this in THREE js so obsolete?
   this.getPointsDist = function (pA, pB) {
@@ -135,7 +82,7 @@ function SegmentCONSTR (options) {
     var offsetZ =  zOffset || 0;
 
     // get some inacurate center point based on simple Z coordinates
-    var T = self.getTFromZ(mousePoint.z);
+    var T = this.o.helix.getTFromZ(mousePoint.z);
 
     // Get distance of surface point and this calculated inacurate point
     var distanceA = self.getPointsDist(mousePoint, self.helixFunction(T, true));
@@ -167,7 +114,7 @@ function SegmentCONSTR (options) {
 
     var threshHold = 100;
 
-    var reducedPolygons =  Math.floor(((this.T2 - this.T1) / 1) * polygons);
+    var reducedPolygons =  Math.floor(((this.o.T2 - this.o.T1) / 1) * polygons);
 
     if (reducedPolygons > threshHold) {
       return reducedPolygons;
@@ -182,8 +129,8 @@ function SegmentCONSTR (options) {
     var polarity = 1;
     if (point.y < 0) { polarity = -1 }
 
-    var X = self.helixFunction(self.getTFromZ(point.z), true).x / this.o.radius;
-    // var Y = self.helixFunction(self.getTFromZ(point.z), true).y/this.radius;
+    var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.radius;
+    // var Y = self.helixFunction(this.o.helix.getTFromZ(point.z), true).y/this.radius;
     var angle = Math.acos(X*polarity);
 
     return angle;
@@ -202,10 +149,6 @@ function SegmentCONSTR (options) {
     var closed = false;
     // var taper = true;
 
-    self.init(this.o.birthDate);
-
-    self.setSegment(this.o.start, this.o.end);
-
     // var randColor = Math.random() * 0xffffff;
 
     var material = new THREE.MeshBasicMaterial( { color: this.o.color } );
@@ -216,7 +159,7 @@ function SegmentCONSTR (options) {
     // console.log(HelixOBJ.getSegmentRatio());
 
     var object = new THREE.TubeGeometry(new self.helixCurve(),
-      self.getReducedPolygons(polygons),
+      self.getReducedPolygons( polygons ),
       this.o.thickness,
       radialPolygons,
       closed);
@@ -227,7 +170,6 @@ function SegmentCONSTR (options) {
 
     this.Mesh = tubeMesh;
 
-    // Watchout! >]
     this.Mesh.dad = this;
 
     this.o.uuid = tubeMesh.uuid;
@@ -240,27 +182,23 @@ function SegmentCONSTR (options) {
 }
 
 ///////////////////////////////////////////////////////////////////
-// LIST OF SEGMENTS CONSTR
+// MIGHTY HELIX CONSTRUCTOR
 //
 ///////////////////////////////////////////////////////////////////
 
-function SegmentListCONSTR (scene, segmentConst, birhtDate) {
+function HelixCONSTR (scene, segmentConst, birthDate) {
   var self = this;
 
-  function optListCONSTR () {
+  function segmentOptionsCONSTR () {
+    this.helix = undefined,
     this.type = "Segment",
     this.uuid = "",
-    this.birhtDate = 0,
-    this.start = 0,
-    this.end = 1,
+    this.thickness = 40,
+    this.T1 = 0,
+    this.T2 = 1,
     this.color = 0xFFFFFF,
     this.visible = true,
-    this.transparency = 0,
-
-    this.radius = 500,
-    this.slope = 0,
-    this.rotation = 1,
-    this.thickness = 40
+    this.transparency = 0
   }
 
   this.scene3d = scene;
@@ -268,6 +206,26 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
 
   // list of segments
   this.segments = [];
+
+  // Whole HELIX
+  this.birthDate = birthDate;
+  this.radius = 500;
+  this.height = 0;
+  this.rotation = 1;
+  this.startDate = 0;
+  this.endDate = 0;
+
+  // When slope is inited its too much because its ms of time so it should be reduced.
+  var heightReduce = 100000000/2;
+
+  // Initiliazing function with help of birth date.
+  this.init = function() {
+    var now = new Date();
+    this.startDate = new Date("01 01 " + this.birthDate.getFullYear());
+    this.endDate = new Date("12 31 " + now.getFullYear());
+    this.height = (this.endDate - this.startDate) / heightReduce;
+    this.rotations = now.getFullYear() - this.birthDate.getFullYear() + 1;
+  }
 
   this.getByProp = function ( prop, value) {
 
@@ -282,6 +240,42 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
 
     return undefined;
   }
+
+  this.getTimeFromT = function ( T ) {
+    var time = new Date();
+    return time.setTime((this.endDate - this.startDate) * T);
+  }
+
+  this.getTFromTime = function ( time ) {
+
+    var T = (time - this.startDate)  / (this.endDate - this.startDate);
+
+    return T;
+  }
+
+  this.getTimeFromPoint = function ( point ) {
+
+    return (self.getTFromZ(point.z) * this.height * heightReduce + this.startDate.getTime());
+
+  }
+
+  this.getNiceTimeFromZ = function ( z ) {
+    var time = new Date();
+    time.setTime( self.getTimeFromPoint({z}) );
+    // console.log(time);
+    var niceTime =  time.getDate() + "-" + time.getMonth() + "-" +time.getFullYear();
+    return niceTime;
+  }
+
+  this.getTFromZ = function ( z ) {
+
+    if (z > this.height) {infoLog("Warning - T from Z: z is too high returning 1. z: " + z); return 1;}
+    if (z < 0) {infoLog("Warning - T from Z: z is too low returning 0. z: " + z); return 0;}
+
+    return z / this.height;
+
+  }
+
   // Put one segment to scene
   this.addSegmentToScene = function (options) {
 
@@ -293,57 +287,42 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
 
   }
 
-  // Create segment object
-  this.createSegment = function (start, end, uuid, color, visible, transparency, type) {
-    var segStart = new Date(start) || 0;
-    var segEnd = new Date(end) || 0;
-
-    var newSegment = new segmentInfoCONST();
-      newSegment.start = (segStart < segEnd ? segStart : segEnd);
-      newSegment.end = (segStart > segEnd ? segStart : segEnd);
-      // TBD Protection to for name to be Unique
-      newSegment.uuid = uuid || "seg #" + Math.floor(Math.random()*900+100);
-      newSegment.color = color || "0xFFFF00";
-      newSegment.visible = visible || true;
-      newSegment.transparency = transparency || 0;
-      newSegment.type = type || "NotDefined";
-    return newSegment;
-  }
-
   // Generating Default list of segments
-  this.genDefaultSegments = function (bDate) {
+  this.genDefaultSegments = function () {
     var interuptions = [];
 
     var now = new Date();
-    var years = now.getFullYear() - bDate.getFullYear();
-    var firstDay = new Date(bDate.getFullYear(), 0, 1);
+    var years = this.rotations;
+    // var firstDay = this.startDate;
+    // // new Date(bDate.getFullYear(), 0, 1);
 
-    interuptions.push(firstDay);
-    interuptions.push(bDate);
+    interuptions.push(self.getTFromTime(this.startDate));
+    interuptions.push(self.getTFromTime(this.birthDate));
 
-    for (var i=1; i <= years; i++) {
-      var newYear = new Date(bDate.getFullYear()+i, 0, 1);
-      interuptions.push(newYear);
+    for (var i=1; i < years; i++) {
+      var newYear = new Date(this.birthDate.getFullYear()+i, 0, 1);
+      interuptions.push(self.getTFromTime(newYear));
     }
 
-    interuptions.push(now);
+    interuptions.push(self.getTFromTime(now));
 
-    var lastDay = new Date(now.getFullYear(), 11, 31, 23, 59);
-    interuptions.push(lastDay);
+    // var lastDay = new Date(now.getFullYear(), 11, 31, 23, 59);
+    interuptions.push(self.getTFromTime(this.endDate));
 
     // After generating time interuptions we can create list of segment objects with parameters
     var segmentsList = [];
 
     for (var i = 0; i+1 < interuptions.length; i++) {
 
-      var newOpts = new optListCONSTR();
-      newOpts.birthDate = bDate;
-      newOpts.start = interuptions[i];
-      newOpts.end = interuptions[i+1];
+      var newOpts = new segmentOptionsCONSTR();
+      // newOpts.birthDate = bDate;
+      newOpts.helix = this;
+      newOpts.T1 = interuptions[i];
+      newOpts.T2 = interuptions[i+1];
       newOpts.name = "Segment #"+i;
       newOpts.color = Math.random() * 0xffffff;
 
-      self.addSegmentToScene(newOpts);
+      self.addSegmentToScene( newOpts );
 
     }
 
@@ -351,7 +330,6 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
 
   // creates segments from options object in list from DB
   this.genSegmentsFromOptList =  function (optionsList) {
-
   }
 
   // push segment into segmentsG
@@ -455,10 +433,10 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
     }
   }
 
-  this.changeSegmentPars = function (pars){
-    console.log("pini change");
-    return;
-  }
+  // this.changeSegmentPars = function (pars){
+  //   console.log("pini change");
+  //   return;
+  // }
 
   // updates timeline segments based on which segments needs to change
   this.updateTimeline = function ( segments, changed ) {
@@ -482,6 +460,8 @@ function SegmentListCONSTR (scene, segmentConst, birhtDate) {
     console.log(segments);
   }
 
+  // Init during instancing.
+  this.init();
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -541,7 +521,7 @@ function The3DpanelCONSTR (options) {
 
   }
 
-  this._setTemplateElements = function ( ) {
+  this.setTemplateElements = function ( ) {
 
     var tempHTML = templatesG[this.o.template];
 
@@ -557,6 +537,8 @@ function The3DpanelCONSTR (options) {
     // Creating container div
     var div = document.createElement('div');
     div.innerHTML = tempHTML;
+
+    div.className = "panel";
 
     div.style.width = this.o.width;
     div.style.height = this.o.height;
@@ -575,7 +557,7 @@ function The3DpanelCONSTR (options) {
       infoLog("timeLabel found");
       var helix = this.o.buddy;
       var timeLabel = div.getElementsByClassName('timeLabel')[0];
-      timeLabel.innerHTML = helix.getNiceTimeFromZ(this.o.timePosition);
+      timeLabel.innerHTML = Helix.getNiceTimeFromZ(this.o.timePosition);
     }
 
     //  Delete Button
@@ -598,7 +580,8 @@ function The3DpanelCONSTR (options) {
       colInp.setAttribute("onchange", "changeObjectPars('"+ info.uuid + "ColInp" +"')");
     }
 
-    this.html = div;
+    // this.html = div;
+    return div;
   }
 
   this._createLine = function ( ) {
@@ -613,7 +596,7 @@ function The3DpanelCONSTR (options) {
     var helix = this.o.buddy;
 
     // Start on center of helix
-    lineGeometry.vertices.push(helix.helixFunction(helix.getTFromZ(this.o.timePosition), true));
+    lineGeometry.vertices.push(helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true));
     // ends on edge of panel
     lineGeometry.vertices.push(this.o.position);
 
@@ -624,6 +607,20 @@ function The3DpanelCONSTR (options) {
     // this.scene3d.add(line);
   }
 
+  this._updateLineVertices = function ( ) {
+    var newPoints = [];
+
+    var helix = this.o.buddy;
+
+    newPoints.push(helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true));
+    // ends on edge of panel
+    newPoints.push(this.o.position);
+
+    this.line.geometry.vertices = newPoints;
+
+    this.line.geometry.verticesNeedUpdate = true;
+  }
+
   this._createPositionRing = function ( ) {
 
     var helix = this.o.buddy;
@@ -632,32 +629,46 @@ function The3DpanelCONSTR (options) {
     var geometry = new THREE.TorusGeometry(helix.o.thickness, 10, 20, 100);
     this.ring = new THREE.Mesh( geometry, material );
 
-    var helixCenter = helix.helixFunction(helix.getTFromZ(this.o.timePosition), true);
+    self._updateRingPositionAndRotation();
+    // var helixCenter = helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true);
+    //
+    // this.ring.position.copy( helixCenter );
+    //
+    // var helixVector = helix.helixFunction(Helix.getTFromZ(this.o.timePosition)+0.0001, true);
+    //
+    // this.ring.lookAt( helixVector );
+
+  }
+
+  this._updateRingPositionAndRotation = function () {
+
+    var helix = this.o.buddy;
+
+    var helixCenter = helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true);
 
     this.ring.position.copy( helixCenter );
 
-    var helixVector = helix.helixFunction(helix.getTFromZ(this.o.timePosition)+0.0001, true);
+    var helixVector = helix.helixFunction(Helix.getTFromZ(this.o.timePosition)+0.0001, true);
 
     this.ring.lookAt( helixVector );
-
   }
 
   this.create3dPanel = function() {
 
-    if ( this.o.template.indexOf('rightClick') >= 0 || this.o.template == "default" || this.o.template.indexOf('mouseover') >= 0) {
-      this.o.type = "FreePanel";
-    } else {
-      this.o.type = "FixPanel";
-    }
+    // if ( this.o.template.indexOf('rightClick') >= 0 || this.o.template == "default" || this.o.template.indexOf('mouseover') >= 0) {
+    //   this.o.type = "FreePanel";
+    // } else {
+    //   this.o.type = "FixPanel";
+    // }
 
     infoLog(" Creating html panel with html from template: " + this.template);
 
     self._createPlane();
     this.o.uuid = this.plane.uuid;
 
-    self._setTemplateElements();
+    this.html = self.setTemplateElements();
 
-    debugLog(this.html);
+    // debugLog(this.html);
 
     self._createCssObject();
     this.css3d.uuid = this.plane.uuid;
@@ -707,7 +718,7 @@ function The3DpanelCONSTR (options) {
     infoLog(" templateName: "+ templateN);
     var emptyTemplate = templatesG[this.o.template];
 
-    var filledTemplate = self._setTemplateElements( this.o.width, this.o.height, emptyTemplate, object.o, this.plane.uuid );
+    var filledTemplate = self.setTemplateElements( );
 
     infoLog(" Filled template from putTemplate: ");
     debugLog(filledTemplate);
@@ -730,6 +741,26 @@ function The3DpanelCONSTR (options) {
 
     this.o.position = newPosition;
 
+  }
+
+  this.setRotation = function ( rotation ) {
+
+    this.o.rotation = rotation;
+
+    this.plane.rotation.x = rotation.x;
+    this.plane.rotation.y = rotation.y;
+    this.plane.rotation.z = rotation.z;
+
+    this.css3d.rotation.x = rotation.x;
+    this.css3d.rotation.y = rotation.y;
+    this.css3d.rotation.z = rotation.z;
+
+  }
+
+  this.updateAccessories = function () {
+    self._updateRingPositionAndRotation();
+    self._updateLineVertices();
+    this.html.innerHTML = self.setTemplateElements().innerHTML;
   }
 
   this.setSize = function ( w, h ) {
@@ -768,12 +799,16 @@ function The3DpanelCONSTR (options) {
 
       this.o.visible = true;
       this.plane.visible = true;
+      this.line.visible = true;
+      this.ring.visible = true;
     } else {
 
       infoLog(" Making panel NOT visible.")
 
       this.o.visible = false;
       this.plane.visible = false;
+      this.line.visible = false;
+      this.ring.visible = false;
     }
 
   }
@@ -842,9 +877,9 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
   this.pointerConstructor = pointerConst;
 
   function objectOptionsCONST () {
-    this.type = "FreePanel",
-    this.uuid = "",
+    // this.type = "FreePanel",
     this.template = "default",
+    this.uuid = "",
     this.width = 350,
     this.height = 250,
     this.position = new THREE.Vector3(0, 0, 0),
@@ -913,12 +948,39 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
 
   }
 
-  this.placePanel = function ( action, onObject, mousePointer ) {
+  this.placePanel = function ( action, onObject, mousePointer, unique ) {
 
-    var freePanel = self.getByProp( "type", "FreePanel" );
+    var panel = self.getByProp( "template", action + onObject.o.type );
 
-    if ( freePanel !== undefined ) {
-      self.removeObject( freePanel );
+    if ( panel !== undefined && unique ) {
+
+      var newZ = onObject.getCenterFromSurface(mousePointer).z;
+      var oldZ = panel.o.timePosition;
+
+      if ( Math.floor(newZ) == Math.floor(oldZ) ) {
+        infoLog("Skipping the update");
+        return panel;
+      }
+
+      // Update dont remove
+      console.log("PANEL FOUND UPDATING");
+      panel.o.buddy = onObject;
+
+      panel.o.timePosition = onObject.getCenterFromSurface(mousePointer).z;
+
+      var xOffset = panel.o.width/2 + onObject.o.thickness + 250;
+      var yOffset = panel.o.height/2 + onObject.o.thickness + 100 ;
+
+
+      panel.setPosition( onObject.getCenterFromSurface( mousePointer, xOffset, yOffset) );
+      panel.setRotation( camera.rotation );
+      panel.updateAccessories();
+      panel.setTemplateElements ();
+      // panel.html
+      // self.removeObject( panel );
+      panel.visible(true);
+
+      return panel;
     }
 
     var newOpts = new objectOptionsCONST ();
@@ -1038,9 +1100,9 @@ function init(birthDate){
 
   Panels = new ObjectsListCONSTR(scene, cssScene, The3DpanelCONSTR, ThePointerCONSTR);
 
-  Segments = new SegmentListCONSTR(scene, SegmentCONSTR);
+  Helix = new HelixCONSTR(scene, SegmentCONSTR, birthDate);
 
-  Segments.genDefaultSegments(birthDate);
+  Helix.genDefaultSegments();
 
 
   // console.log(Panels);
@@ -1186,13 +1248,13 @@ function deleteObjectWRP ( uuids ) {
 
     var uuid = uuids[i];
 
-    var segment = Segments.getByProp("uuid", uuid);
+    var segment = Helix.getByProp("uuid", uuid);
 
     if ( segment !== undefined ){
 
-      Segments.removeSegment ( segment );
+      Helix.removeSegment ( segment );
 
-      Panels.getByProp( "type", "Pointer" ).visible(false);
+      Panels.getByProp( "template", "mouseoverSegment" ).visible(false);
 
     }
 
@@ -1279,9 +1341,9 @@ function leftCliked(circleObj) {
 
       // Segments inserting START
       if (segDurationG == 0 ) {
-        segDurationG = intersecObj.helix.getTimeFromPoint(centerPoint);
+        segDurationG = Helix.getTimeFromPoint(centerPoint);
       } else {
-        var changedSegments = pushSegment(createSegment(segDurationG, intersecObj.helix.getTimeFromPoint(centerPoint)), segmentsG);
+        var changedSegments = pushSegment(createSegment(segDurationG, Helix.getTimeFromPoint(centerPoint)), segmentsG);
         updateTimeline(scene, segmentsG, changedSegments);
 
         segDurationG = 0;
@@ -1290,7 +1352,7 @@ function leftCliked(circleObj) {
       // Segments inserting END
 
       // var dta = new Date();
-      // dta.setTime(intersecObj.helix.getTimeFromPoint(circleObj.position));
+      // dta.setTime(Helix.getTimeFromPoint(circleObj.position));
       // console.log(dta);
       break;
     } else {
@@ -1333,7 +1395,7 @@ function doAction (action, onObject, mousePointer) {
 
   if (action.indexOf('rightClick') >= 0) {
 
-    var freePanel = Panels.placePanel( action, helix, mousePointer );
+    var freePanel = Panels.placePanel( action, helix, mousePointer, true );
 
   } else if (action.indexOf('leftClick') >= 0) {
     // generate mediaPanel
@@ -1380,9 +1442,9 @@ function render() {
 
         if ( helix.o.type == "Segment" ){
 
-          Panels.placePointerOnHelix( helix, intersects[ 0 ].point );
+          // Panels.placePointerOnHelix( helix, intersects[ 0 ].point );
 
-          var timePanel = Panels.placePanel( action, helix, intersects[ 0 ].point);
+          var timePanel = Panels.placePanel( action, helix, intersects[ 0 ].point, true);
           timePanel.setSize(100, 50);
 
           break;
