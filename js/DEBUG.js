@@ -1,17 +1,10 @@
-// var newZ = onObject.getCenterFromSurface(mousePointer).z;
-// var oldZ = panel.o.timePosition;
-//
-// if ( Math.floor(newZ) == Math.floor(oldZ) ) {
-//   return panel;
-// }
-
 ///////////////////////////////////////////////////////////////////
 // Stuff only for DEBUGGIN stage
 //
 ///////////////////////////////////////////////////////////////////
 
-var infoLogging = true;
-var debugLoging = true;
+var infoLogging = false;
+var debugLoging = false;
 
 var stats;
 

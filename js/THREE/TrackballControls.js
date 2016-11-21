@@ -476,15 +476,15 @@ THREE.TrackballControls = function ( object, domElement ) {
 		event.stopPropagation();
 
 		// HACKED!!!
-		if ( event.deltaY > 0 ) {
-
-			_zoomStart.y -=  100 * 0.01;
-
-		} else {
-
-			_zoomStart.y -=  -100 * 0.01;
-
-		}
+		// if ( event.deltaY > 0 ) {
+		//
+		// 	_zoomStart.y -=  100 * 0.01;
+		//
+		// } else {
+		//
+		// 	_zoomStart.y -=  -100 * 0.01;
+		//
+		// }
 
 		_zoomStart.y -=  event.deltaY * 0.01;
 

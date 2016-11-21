@@ -22,7 +22,6 @@ var Helix;
 var Panels;
 
 // list of start and end of segment
-var segDurationG = 0;
 
 ///////////////////////////////////////////////////////////////////
 // 3D segment constructor.
@@ -37,7 +36,7 @@ function SegmentCONSTR ( options ) {
 
   this.Mesh = undefined;
 
-  // Function to generate helix points t is from 0 to 1. When pure true there is not T limit.
+  // Function to generate helix points t is from 0 to 1. When pure true there is not T stretching.
   this.helixFunction = function (t, pure, radiusOffset, zOffset) {
 
     var Tl = self._tStrech( t );
@@ -138,7 +137,22 @@ function SegmentCONSTR ( options ) {
 
   // Who is that???
   this.TALK = function() {
-    console.log("This is segment '"+ this.o.uuid +"' starts at: "+ this.o.start +" and ends at: "+ this.o.end);
+    console.log("This is segment '"+ this.o.uuid +"' starts at: "+ this.o.T1 +" and ends at: "+ this.o.T2);
+  }
+
+  this.updateGeometry = function () {
+
+    var closed = false;
+    var polygons = 1000;
+    var radialPolygons = 12;
+
+    var object = new THREE.TubeGeometry(new self.helixCurve(),
+      self.getReducedPolygons( polygons ),
+      this.o.thickness,
+      radialPolygons,
+      closed);
+
+    this.Mesh.geometry = object;
   }
 
   this.create3Dsegment = function () {
@@ -151,7 +165,11 @@ function SegmentCONSTR ( options ) {
 
     // var randColor = Math.random() * 0xffffff;
 
-    var material = new THREE.MeshBasicMaterial( { color: this.o.color } );
+    var material = new THREE.MeshBasicMaterial( {
+      color: this.o.color,
+      opacity: this.o.opacity,
+      transparent: true
+    } );
     // var material = new THREE.MeshBasicMaterial( { color: randColor} );
     // this.o.color = Math.floor(randColor).toString(16);
 
@@ -193,13 +211,21 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
     this.helix = undefined,
     this.type = "Segment",
     this.uuid = "",
-    this.thickness = 40,
+    this.thickness = 90,
     this.T1 = 0,
     this.T2 = 1,
     this.color = 0xFFFFFF,
     this.visible = true,
-    this.transparency = 0
+    this.opacity = 1
   }
+
+  this.segmentBuffer = {
+    show: false,
+    active: false,
+    T1:0,
+    T2:0
+  };
+
 
   this.scene3d = scene;
   this.segmentConstructor = segmentConst;
@@ -229,7 +255,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
   this.getByProp = function ( prop, value) {
 
-    infoLog("Looking for prop: "+prop+ " val: "+ value);
+    infoLog("Looking for prop: "+prop+ " val: "+ value + "In segments");
     for (var i = 0; i < this.segments.length; i++) {
 
         if (this.segments[i]["o"][prop] == value) {
@@ -263,7 +289,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
     var time = new Date();
     time.setTime( self.getTimeFromPoint({z}) );
     // console.log(time);
-    var niceTime =  time.getDate() + "-" + time.getMonth() + "-" +time.getFullYear();
+    var niceTime =  time.getDate() + "-" + (parseInt(time.getMonth())+1) + "-" +time.getFullYear();
     return niceTime;
   }
 
@@ -281,10 +307,11 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
     var newSegment = new self.segmentConstructor(options);
 
-    this.segments.push(newSegment);
+    // this.segments.push(newSegment);
 
     this.scene3d.add(newSegment.Mesh);
 
+    return newSegment;
   }
 
   // Generating Default list of segments
@@ -293,8 +320,6 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
     var now = new Date();
     var years = this.rotations;
-    // var firstDay = this.startDate;
-    // // new Date(bDate.getFullYear(), 0, 1);
 
     interuptions.push(self.getTFromTime(this.startDate));
     interuptions.push(self.getTFromTime(this.birthDate));
@@ -322,8 +347,9 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
       newOpts.name = "Segment #"+i;
       newOpts.color = Math.random() * 0xffffff;
 
-      self.addSegmentToScene( newOpts );
 
+      var newSegment = self.addSegmentToScene( newOpts );
+      this.segments.push(newSegment);
     }
 
   }
@@ -332,105 +358,82 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
   this.genSegmentsFromOptList =  function (optionsList) {
   }
 
-  // push segment into segmentsG
-  this.pushSegment = function (pushedSegment) {
-    // TBD I should order segmentList by start time to be sure.
-    var changedSegments = [];
-    console.log(pushedSegment);
+  // push segment from segmentBuffer**
+  this.pushSegment = function ( ) {
+
     // number of segment in seglist in which pushed segment starts
     var startSeg = 0;
+
     for (var i=0; i < this.segments.length; i++){
-      if (pushedSegment.o.start > segments[i].o.start) {startSeg = i;}
+      if (this.segmentBuffer.T1 > this.segments[i].o.T1) {startSeg = i;}
     }
 
     // number of segment in seglist in which pushed segment ends
     var endSeg = 0;
-    for (var i=0; i < segments.length; i++){
-      if (pushedSegment.o.end < segments[i].o.end) {endSeg = i; break;}
+
+    for (var i=0; i < this.segments.length; i++){
+      if (this.segmentBuffer.T2 < this.segments[i].o.T2) {endSeg = i; break;}
     }
 
     console.log(startSeg, endSeg);
+    var startSegment = this.segments[startSeg];
+    var endSegment = this.segments[endSeg];
 
-    if ((endSeg - startSeg) == 1 ) {
-      infoLog(" Pushed segemnt is coming thru one segment");
-      segments[startSeg].o.end = pushedSegment.o.start;
-      segments[endSeg].o.start = pushedSegment.o.end;
-
-      changedSegments = [segments[startSeg].o.uuid, segments[endSeg].o.uuid, pushedSegment.o.uuid];
-
-      segments.splice(startSeg+1,0,pushedSegment);
-
-    } else if (endSeg == startSeg) {
-      infoLog(" Pushed segment is in one segment");
-      var firstSegOpt = Object.assign({}, segments[startSeg].o);
-      var secondSegOpt = Object.assign({}, segments[startSeg].o);
-      // startSegOpt.end =
-      // var segmentClon = new self.segmentConstructor(segments[startSeg].o);
-      // var segmentClon = Object.assign({}, segments[startSeg]);
-
-      var origName = segments[startSeg].o.uuid;
-
-      // segments[startSeg].o.uuid = segments[startSeg].uuid + "A";
-      firstSegOpt.end = pushedSegment.o.start;
-      // segmentClon.o.uuid = segmentClon.uuid + "B";
-      secondSegOpt.start = pushedSegment.o.end;
-
-      var firstSegment = new new self.segmentConstructor(firstSegOpt);
-      var secondSegment = new new self.segmentConstructor(secondSegOpt);
+    var pushedSegOpt = new segmentOptionsCONSTR();
+    pushedSegOpt.helix = this;
+    pushedSegOpt.name = "pushed";
+    pushedSegOpt.color = Math.random() * 0xffffff;
 
 
-      changedSegments = [firstSegment.o.uuid, secondSegment.uuid, pushedSegment.o.uuid];
+    pushedSegOpt.T1 = this.segmentBuffer.T1;
+    pushedSegOpt.T2 = this.segmentBuffer.T2;
+    var pushedSegment = self.addSegmentToScene( pushedSegOpt );
 
-      // ????
-      changedSegments.push(origName);
+    if ((endSeg - startSeg) >= 1 ) {
+      console.log(" Pushed segment is coming thru one or more segment");
 
-      segments.splice(startSeg,1,[firstSegment, pushedSegment, secondSegment]);
-      // segments.splice(startSeg+1,0,pushedSegment);
-      // segments.splice(startSeg+2,0,segmentClon);
+      startSegment.o.T2 = this.segmentBuffer.T1;
+      endSegment.o.T1 = this.segmentBuffer.T2;
 
+      startSegment.updateGeometry();
+      endSegment.updateGeometry();
 
-    } else {
-      infoLog(" Pushed segment is coming thru more segments");
-      segments[startSeg].o.end = pushedSegment.o.start;
-      segments[endSeg].o.start = pushedSegment.o.end;
+      var removedSegments = this.segments.splice(startSeg+1, (endSeg - startSeg - 1), pushedSegment);
 
-      var firstSegOpt = Object.assign({}, segments[startSeg].o);
-      var secondSegOpt = Object.assign({}, segments[endSeg].o);
-
-      firstSegOpt.end = pushedSegment.o.start;
-      secondSegOpt.start = pushedSegment.o.end;
-
-      var firstSegment = new new self.segmentConstructor(firstSegOpt);
-      var secondSegment = new new self.segmentConstructor(secondSegOpt);
-
-
-      changedSegments = [segments[startSeg].o.uuid, segments[endSeg].o.uuid, pushedSegment.o.uuid];
-
-      var removedSegments = segments.splice(startSeg,endSeg-startSeg,[firstSegment ,pushedSegment ,secondSegment]);
+      console.log(removedSegments);
 
       for (var i=0; i < removedSegments.length; i++){
-        changedSegments.push(removedSegments[i].o.uuid);
+        self.removeSegment(removedSegments[i]);
       }
+    } else if (endSeg == startSeg) {
+      console.log(" Pushed segment is in one segment");
+
+      // Shrink the segment
+
+      var lastSegOpt = Object.assign({}, startSegment.o);
+      lastSegOpt.T1 = this.segmentBuffer.T2;
+      var lastSegment = self.addSegmentToScene( lastSegOpt );
+
+      startSegment.o.T2 = this.segmentBuffer.T1;
+      startSegment.updateGeometry();
+
+      this.segments.splice(startSeg+1, 0, pushedSegment);
+      this.segments.splice(startSeg+2, 0, lastSegment);
+
     }
 
-    debugLog(changedSegments);
-
-    return changedSegments;
   }
 
   // remove segment from segmentsG and scene
-  this.removeSegment = function (segment){
+  this.removeSegment = function ( segment ){
 
-    for (var i=0; i < this.segments.length; i++) {
+    var index = this.segments.indexOf(segment);
 
-      if (this.segments[i].o.uuid ==  segment.o.uuid) {
-        this.segments.splice(i,1);
-        infoLog(" Removing and disposing segment: " + segment.o.uuid);
-        // segment.Mesh.dispose();
-        this.scene3d.remove(segment.Mesh);
-      }
-
+    if (index > 0) {
+      this.segments.splice(index,1);
     }
+
+    this.scene3d.remove(segment.Mesh);
   }
 
   // this.changeSegmentPars = function (pars){
@@ -439,26 +442,26 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
   // }
 
   // updates timeline segments based on which segments needs to change
-  this.updateTimeline = function ( segments, changed ) {
-    // TBD make it so, that when changed not defined it just refresh all segments
-    for (var i=0; i < changed.length; i++){
-
-      var selectedObject = scene3d.getObjectByName(changed[i]);
-      if (selectedObject != undefined) {
-        console.log("Removing segment: " + changed[i]);
-        scene3d.remove( selectedObject );
-        // renderer.deallocateObject( selectedObject );
-      }
-
-      for (var y=0; y < segments.length; y++) {
-        if (segments[y].uuid == changed[i]){
-          console.log("Adding segment: " + segments[y].uuid);
-          addSegmentToScene(segments[y], scene, birthDateINP);
-        }
-      }
-    }
-    console.log(segments);
-  }
+  // this.updateTimeline = function ( segments, changed ) {
+  //   // TBD make it so, that when changed not defined it just refresh all segments
+  //   for (var i=0; i < changed.length; i++){
+  //
+  //     var selectedObject = scene3d.getObjectByName(changed[i]);
+  //     if (selectedObject != undefined) {
+  //       console.log("Removing segment: " + changed[i]);
+  //       scene3d.remove( selectedObject );
+  //       // renderer.deallocateObject( selectedObject );
+  //     }
+  //
+  //     for (var y=0; y < segments.length; y++) {
+  //       if (segments[y].uuid == changed[i]){
+  //         console.log("Adding segment: " + segments[y].uuid);
+  //         addSegmentToScene(segments[y], scene, birthDateINP);
+  //       }
+  //     }
+  //   }
+  //   console.log(segments);
+  // }
 
   // Init during instancing.
   this.init();
@@ -493,7 +496,8 @@ function The3DpanelCONSTR (options) {
    var geometry = new THREE.RoundedSquare( this.o.width, this.o.height );
    var mesh = new THREE.Mesh(geometry, material);
 
-   mesh.position.copy( this.o.position );
+   mesh.position.copy( self.getPanelPosition() );
+  //  console.log(self.getPanelPosition());
    mesh.rotation.x = this.o.rotation.x;
    mesh.rotation.y = this.o.rotation.y;
    mesh.rotation.z = this.o.rotation.z;
@@ -508,7 +512,7 @@ function The3DpanelCONSTR (options) {
 
     var cssObject = new THREE.CSS3DObject( this.html );
 
-    cssObject.position.copy( this.o.position );
+    cssObject.position.copy( self.getPanelPosition() );
     cssObject.rotation.x = this.o.rotation.x;
     cssObject.rotation.y = this.o.rotation.y;
     cssObject.rotation.z = this.o.rotation.z;
@@ -555,9 +559,16 @@ function The3DpanelCONSTR (options) {
     //  Time label
     if (div.getElementsByClassName('timeLabel')[0] !== undefined ) {
       infoLog("timeLabel found");
-      var helix = this.o.buddy;
+      var segment = this.o.buddy;
       var timeLabel = div.getElementsByClassName('timeLabel')[0];
-      timeLabel.innerHTML = Helix.getNiceTimeFromZ(this.o.timePosition);
+      timeLabel.innerHTML = Helix.getNiceTimeFromZ(this.o.centerPosition.z);
+    }
+
+    //  Start New Segment button
+    if (div.getElementsByClassName('startBtn')[0] !== undefined ) {
+      infoLog("startBtn found");
+      var startBtn = div.getElementsByClassName('startBtn')[0];
+      startBtn.setAttribute("onclick", "startNewSegmentWRP('" + Helix.getTFromZ(this.o.centerPosition.z) + "','" + this.o.uuid + "')");
     }
 
     //  Delete Button
@@ -593,12 +604,12 @@ function The3DpanelCONSTR (options) {
 	     color: 0x000000
     });
 
-    var helix = this.o.buddy;
+    var segment = this.o.buddy;
 
-    // Start on center of helix
-    lineGeometry.vertices.push(helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true));
+    // Start on center of segment
+    lineGeometry.vertices.push( this.o.centerPosition );
     // ends on edge of panel
-    lineGeometry.vertices.push(this.o.position);
+    lineGeometry.vertices.push( self.getPanelPosition() );
 
     var line = new THREE.Line( lineGeometry, lineMaterial );
 
@@ -610,11 +621,11 @@ function The3DpanelCONSTR (options) {
   this._updateLineVertices = function ( ) {
     var newPoints = [];
 
-    var helix = this.o.buddy;
+    var segment = this.o.buddy;
 
-    newPoints.push(helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true));
-    // ends on edge of panel
-    newPoints.push(this.o.position);
+    newPoints.push( this.o.centerPosition );
+
+    newPoints.push( self.getPanelPosition() );
 
     this.line.geometry.vertices = newPoints;
 
@@ -623,18 +634,18 @@ function The3DpanelCONSTR (options) {
 
   this._createPositionRing = function ( ) {
 
-    var helix = this.o.buddy;
+    var segment = this.o.buddy;
 
     var material = new THREE.MeshBasicMaterial( { color: 0x000000 });
-    var geometry = new THREE.TorusGeometry(helix.o.thickness, 10, 20, 100);
+    var geometry = new THREE.TorusGeometry(segment.o.thickness, 10, 20, 100);
     this.ring = new THREE.Mesh( geometry, material );
 
     self._updateRingPositionAndRotation();
-    // var helixCenter = helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true);
+    // var helixCenter = segment.helixFunction(Helix.getTFromZ(this.o.timePosition), true);
     //
     // this.ring.position.copy( helixCenter );
     //
-    // var helixVector = helix.helixFunction(Helix.getTFromZ(this.o.timePosition)+0.0001, true);
+    // var helixVector = segment.helixFunction(Helix.getTFromZ(this.o.timePosition)+0.0001, true);
     //
     // this.ring.lookAt( helixVector );
 
@@ -642,13 +653,13 @@ function The3DpanelCONSTR (options) {
 
   this._updateRingPositionAndRotation = function () {
 
-    var helix = this.o.buddy;
+    var segment = this.o.buddy;
 
-    var helixCenter = helix.helixFunction(Helix.getTFromZ(this.o.timePosition), true);
+    // var helixCenter = segment.helixFunction(Helix.getTFromZ(this.o.timePosition), true);
 
-    this.ring.position.copy( helixCenter );
+    this.ring.position.copy( this.o.centerPosition );
 
-    var helixVector = helix.helixFunction(Helix.getTFromZ(this.o.timePosition)+0.0001, true);
+    var helixVector = segment.helixFunction(Helix.getTFromZ(this.o.centerPosition.z) + 0.0001, true);
 
     this.ring.lookAt( helixVector );
   }
@@ -661,7 +672,8 @@ function The3DpanelCONSTR (options) {
     //   this.o.type = "FixPanel";
     // }
 
-    infoLog(" Creating html panel with html from template: " + this.template);
+    infoLog(" Creating html panel with html from template: " + this.o.template);
+    debugLog(self.getPanelPosition());
 
     self._createPlane();
     this.o.uuid = this.plane.uuid;
@@ -726,6 +738,7 @@ function The3DpanelCONSTR (options) {
     this.html.innerHTML = filledTemplate.innerHTML;
   }
 
+
   this.setRotationY = function ( angle ) {
 
     this.plane.rotation.y = angle;
@@ -734,12 +747,30 @@ function The3DpanelCONSTR (options) {
 
   }
 
-  this.setPosition = function ( newPosition ) {
+  this.getPanelPosition = function ( ) {
+    return this.o.buddy.helixFunction(
+      Helix.getTFromZ(this.o.centerPosition.z),
+      true,
+      this.o.offsetX,
+      this.o.offsetY);
+  }
 
-    this.plane.position.copy(newPosition);
-    this.css3d.position.copy(newPosition);
+  this.updateCenterPosition = function ( newPosition ) {
+    this.o.centerPosition = newPosition;
+    this.plane.position.copy(self.getPanelPosition());
+    this.css3d.position.copy(self.getPanelPosition());
+    self.updateAccessories();
+    // self._updateLineVertices();
+    // self.__updateRingPositionAndRotation();
 
-    this.o.position = newPosition;
+  }
+
+  this.setNewOffsets = function ( xOff, yOff ) {
+
+    this.o.offsetX = xOff;
+    this.o.offsetY = yOff;
+
+    self.updatePosition();
 
   }
 
@@ -765,28 +796,11 @@ function The3DpanelCONSTR (options) {
 
   this.setSize = function ( w, h ) {
 
-    // var thisW = this.o.width;
-    // var thisH = this.o.height;
-    //
-    // var scaleX =  w / thisW ;
-    // var scaleY =  h / thisH;
-    //
-    //
-    // if(scaleX != 1 && scaleY != 1){
-    //
-    //   infoLog("scaling X: " +scaleX+ " Y: "+scaleY);
-    //
-    //   this.plane.scale.x = scaleX;
-    //   this.plane.scale.y = scaleY;
-    //
-      this.html.style.width = w;
-      this.html.style.height = h;
+    this.html.style.width = w;
+    this.html.style.height = h;
 
-      this.o.width = w;
-      this.o.height = h;
-    // }
-
-    // var plane = self._createPlane( this.o.width, this.o.height, this.o.position, this.o.rotation);
+    this.o.width = w;
+    this.o.height = h;
 
     this.plane.geometry = new THREE.RoundedSquare(w, h);
   }
@@ -799,6 +813,7 @@ function The3DpanelCONSTR (options) {
 
       this.o.visible = true;
       this.plane.visible = true;
+      this.css3d.visible = true;
       this.line.visible = true;
       this.ring.visible = true;
     } else {
@@ -807,6 +822,7 @@ function The3DpanelCONSTR (options) {
 
       this.o.visible = false;
       this.plane.visible = false;
+      this.css3d.visible = false;
       this.line.visible = false;
       this.ring.visible = false;
     }
@@ -822,51 +838,50 @@ function The3DpanelCONSTR (options) {
 //
 ///////////////////////////////////////////////////////////////////
 
-function ThePointerCONSTR (options) {
-
-  var self = this;
-
-  this.o = options;
-
-  this.Mesh = undefined;
-
-  this.visible = function ( visible ) {
-    if ( visible ) {
-
-      // infoLog(" Making pointer visible.");
-
-      this.o.visible = true;
-      this.Mesh.visible = true;
-    } else {
-
-      // infoLog(" Making pointer NOT visible.");
-
-      this.o.visible = false;
-      this.Mesh.visible = false;
-    }
-  }
-
-  this.putPosition =  function ( position ) {
-    this.Mesh.position.copy(position);
-    this.o.position = position;
-  }
-
-  this.createPointer = function () {
-    var material = new THREE.MeshBasicMaterial( { color: this.o.color });
-    var geometry = new THREE.TorusGeometry(this.o.radius, this.o.thickness, 20, 100);
-    this.Mesh = new THREE.Mesh( geometry, material );
-    this.Mesh.visible = this.o.visible;
-  }
-
-  this.createPointer()
-}
+// function ThePointerCONSTR (options) {
+  // var self = this;
+  //
+  // this.o = options;
+  //
+  // this.Mesh = undefined;
+  //
+  // this.visible = function ( visible ) {
+  //   if ( visible ) {
+  //
+  //     // infoLog(" Making pointer visible.");
+  //
+  //     this.o.visible = true;
+  //     this.Mesh.visible = true;
+  //   } else {
+  //
+  //     // infoLog(" Making pointer NOT visible.");
+  //
+  //     this.o.visible = false;
+  //     this.Mesh.visible = false;
+  //   }
+  // }
+  //
+  // this.putPosition =  function ( position ) {
+  //   this.Mesh.position.copy(position);
+  //   this.o.position = position;
+  // }
+  //
+  // this.createPointer = function () {
+  //   var material = new THREE.MeshBasicMaterial( { color: this.o.color });
+  //   var geometry = new THREE.TorusGeometry(this.o.radius, this.o.thickness, 20, 100);
+  //   this.Mesh = new THREE.Mesh( geometry, material );
+  //   this.Mesh.visible = this.o.visible;
+  // }
+  //
+  // this.createPointer()
+// }
 
 ///////////////////////////////////////////////////////////////////
 // LIST OF PANELS CONSTR
 //
 ///////////////////////////////////////////////////////////////////
 
-function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
+function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
   var self = this;
 
@@ -874,7 +889,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
   this.css3dScene = cssScene;
 
   this.panelConstructor = panelConst;
-  this.pointerConstructor = pointerConst;
+  // this.pointerConstructor = pointerConst;
 
   function objectOptionsCONST () {
     // this.type = "FreePanel",
@@ -882,27 +897,29 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     this.uuid = "",
     this.width = 350,
     this.height = 250,
-    this.position = new THREE.Vector3(0, 0, 0),
+    this.centerPosition = new THREE.Vector3(0, 0, 0),
     this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
-    this.timePosition = 0,
-    this.color = 0xFFFFFF,
+    // this.timePosition = 0,
+    this.offsetX = 200,
+    this.offsetY = 150,
+    // this.color = 0xFFFFFF,
     this.visible = true,
-    this.transparency = 0,
+    // this.transparency = 0,
     this.buddy = undefined
   }
 
-  function pointerOptionsCONST () {
-    this.type = "Pointer",
-    this.uuid = "",
-    this.radius = 10,
-    this.thickness = 3,
-    this.position = new THREE.Vector3(0, 0, 0),
-    this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
-    this.timePosition = 0,
-    this.color = 0x000000,
-    this.visible = true,
-    this.transparency = 0
-  }
+  // function pointerOptionsCONST () {
+  //   this.type = "Pointer",
+  //   this.uuid = "",
+  //   this.radius = 10,
+  //   this.thickness = 3,
+  //   this.position = new THREE.Vector3(0, 0, 0),
+  //   this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
+  //   this.timePosition = 0,
+  //   this.color = 0x000000,
+  //   this.visible = true,
+  //   this.transparency = 0
+  // }
 
   this.objects = [];
 
@@ -919,7 +936,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
   }
 
   this.getByProp = function ( prop, value ) {
-    infoLog("Looking for prop: "+prop+ " val: "+ value);
+    infoLog("Looking for prop: "+prop+ " val: "+ value + " in Objects");
     for (var i = 0; i < this.objects.length; i++) {
 
         if (this.objects[i]["o"][prop] == value) {
@@ -950,56 +967,60 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
 
   this.placePanel = function ( action, onObject, mousePointer, unique ) {
 
-    var panel = self.getByProp( "template", action + onObject.o.type );
+      var template = action + onObject.o.type;
 
-    if ( panel !== undefined && unique ) {
+      var panel = self.getByProp( "template", template );
 
-      var newZ = onObject.getCenterFromSurface(mousePointer).z;
-      var oldZ = panel.o.timePosition;
+      if ( panel !== undefined && unique ) {
 
-      if ( Math.floor(newZ) == Math.floor(oldZ) ) {
-        infoLog("Skipping the update");
+        var newZ = onObject.getCenterFromSurface(mousePointer).z;
+        var oldZ = panel.o.centerPosition.z;
+
+        if ( Math.floor(newZ) == Math.floor(oldZ) ) {
+          // infoLog("Skipping the update");
+          return panel;
+        }
+
+        // Update dont remove
+        // console.log("PANEL FOUND UPDATING");
+        panel.o.buddy = onObject;
+
+        // panel.o.timePosition = onObject.getCenterFromSurface(mousePointer).z;
+
+        // var xOffset = panel.o.width/2 + onObject.o.thickness + 250;
+        // var yOffset = panel.o.height/2 + onObject.o.thickness + 100 ;
+
+        panel.updateCenterPosition( onObject.getCenterFromSurface( mousePointer ) );
+        panel.setRotation( camera.rotation );
+        panel.updateAccessories();
+        panel.setTemplateElements();
+        // panel.html
+        // self.removeObject( panel );
+        panel.visible(true);
+
         return panel;
       }
 
-      // Update dont remove
-      console.log("PANEL FOUND UPDATING");
-      panel.o.buddy = onObject;
-
-      panel.o.timePosition = onObject.getCenterFromSurface(mousePointer).z;
-
-      var xOffset = panel.o.width/2 + onObject.o.thickness + 250;
-      var yOffset = panel.o.height/2 + onObject.o.thickness + 100 ;
-
-
-      panel.setPosition( onObject.getCenterFromSurface( mousePointer, xOffset, yOffset) );
-      panel.setRotation( camera.rotation );
-      panel.updateAccessories();
-      panel.setTemplateElements ();
-      // panel.html
-      // self.removeObject( panel );
-      panel.visible(true);
-
-      return panel;
-    }
+    // console.log("PANEL NOT FOUND CREATING NEW");
 
     var newOpts = new objectOptionsCONST ();
 
     newOpts.buddy = onObject;
 
-    var xOffset = newOpts.width/2 + onObject.o.thickness;
-    var yOffset = newOpts.height/2 + onObject.o.thickness;
+    // var xOffset = newOpts.width / 2 + onObject.o.thickness;
+    // var yOffset = newOpts.height / 2 + onObject.o.thickness;
 
     var centerPoint = onObject.getCenterFromSurface(mousePointer);
-    var offsetPoint = onObject.getCenterFromSurface(mousePointer, xOffset, yOffset);
+    // var offsetPoint = onObject.getCenterFromSurface(mousePointer, xOffset, yOffset);
 
-    newOpts.position =  offsetPoint;
+    newOpts.centerPosition =  centerPoint;
 
-    newOpts.timePosition = centerPoint.z;
+
+    // newOpts.timePosition = centerPoint.z;
 
     newOpts.rotation = new THREE.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
-    newOpts.template = action + onObject.o.type;
+    newOpts.template = template;
 
     return self.createPanel( newOpts );
   }
@@ -1020,46 +1041,46 @@ function ObjectsListCONSTR(scene, cssScene, panelConst, pointerConst) {
     return newPanel;
   }
 
-  this.placePointerOnHelix = function (helix, mousePoint) {
-
-    var pointer = self.isTypeInList("Pointer");
-
-    if (pointer !== false) {
-
-      // infoLog(pointer.o.position.z +" =? "+helix.getCenterFromSurface( mousePoint ).z);
-      // if (pointer.o.position.z === helix.getCenterFromSurface( mousePoint ).z) {
-      //   return;
-      // }
-
-      var pointerRadius = pointer.Mesh.geometry.parameters.radius;
-
-      if (pointerRadius == helix.o.thickness) {
-
-        pointer.visible(true);
-
-        pointer.putPosition( helix.getCenterFromSurface( mousePoint ) );
-
-        var helixVector = helix.helixFunction(helix.getTFromZ(pointer.o.position.z)+0.0001, true);
-
-        pointer.Mesh.lookAt( helixVector );
-
-        return;
-
-      } else {
-
-        self.removeObject(pointer);
-
-      }
-
-    }
-
-    var pointerOpts = new pointerOptionsCONST();
-
-    pointerOpts.radius = helix.o.thickness;
-
-    self.createPointer(pointerOpts);
-
-  }
+  // this.placePointerOnHelix = function (segment, mousePoint) {
+  //
+  //   var pointer = self.isTypeInList("Pointer");
+  //
+  //   if (pointer !== false) {
+  //
+  //     // infoLog(pointer.o.position.z +" =? "+segment.getCenterFromSurface( mousePoint ).z);
+  //     // if (pointer.o.position.z === segment.getCenterFromSurface( mousePoint ).z) {
+  //     //   return;
+  //     // }
+  //
+  //     var pointerRadius = pointer.Mesh.geometry.parameters.radius;
+  //
+  //     if (pointerRadius == segment.o.thickness) {
+  //
+  //       pointer.visible(true);
+  //
+  //       pointer.putPosition( segment.getCenterFromSurface( mousePoint ) );
+  //
+  //       var helixVector = segment.helixFunction(Helix.getTFromZ(pointer.o.position.z)+0.0001, true);
+  //
+  //       pointer.Mesh.lookAt( helixVector );
+  //
+  //       return;
+  //
+  //     } else {
+  //
+  //       self.removeObject(pointer);
+  //
+  //     }
+  //
+  //   }
+  //
+  //   var pointerOpts = new pointerOptionsCONST();
+  //
+  //   pointerOpts.radius = segment.o.thickness;
+  //
+  //   self.createPointer(pointerOpts);
+  //
+  // }
 
   this.createPointer = function (options) {
 
@@ -1098,7 +1119,7 @@ function init(birthDate){
   scene = new THREE.Scene();
   cssScene = new THREE.Scene();
 
-  Panels = new ObjectsListCONSTR(scene, cssScene, The3DpanelCONSTR, ThePointerCONSTR);
+  Panels = new ObjectsListCONSTR(scene, cssScene, The3DpanelCONSTR);
 
   Helix = new HelixCONSTR(scene, SegmentCONSTR, birthDate);
 
@@ -1268,10 +1289,26 @@ function deleteObjectWRP ( uuids ) {
   }
 }
 
+function startNewSegmentWRP ( T1, PanelUuid ) {
+    Helix.segmentBuffer.active = true;
+    Helix.segmentBuffer.T1 = parseFloat(T1);
+
+    var panel = Panels.getByProp("uuid", PanelUuid);
+
+    if ( panel !== undefined) {
+
+      // Panels.removeObject( panel );
+      panel.visible(false);
+
+    }
+    // Helix.pushedSegmentDuratin.T2 = T1+0.1;
+}
+
 function changeSegmentWRP (segInfo) {
   changeSegmentPars (segInfo);
   hidePanel(panelId);
 }
+
 
 function hidePanel (id) {
   document.getElementById(id).style.cssText += ("visible: false");
@@ -1285,75 +1322,58 @@ function hidePanel (id) {
 /////////////////////// LEFT CLICK ////////////////////////////////
 
 function leftCliked(circleObj) {
-  var action = "leftClick";
-  var intersects = raycaster.intersectObjects( scene.children );
-  // console.log(intersects);
 
-    for (var i = 100; i < intersects.length; i++) {
+  var action = "leftClick";
+
+  var intersects = raycaster.intersectObjects( scene.children );
+
+    for (var i = 0; i < intersects.length; i++) {
 
       var intersecObj = intersects[ i ].object;
 
-      if (intersecObj.hasOwnProperty("dad")) {
+      if ( intersecObj.hasOwnProperty("dad") ) {
 
-      var helix = intersecObj.helix;
+      // intersecObj.updateVertices();
+
+      var segment = intersecObj.dad;
       var mousePointer = intersects[ i ].point;
-      var centerPoint = helix.getCenterFromSurface(mousePointer);
+      var centerPoint = segment.getCenterFromSurface(mousePointer);
       console.log(intersecObj);
-      helix.TALK();
+      segment.TALK();
 
-      // $.get("data/panel.htm",function(data){
+      if ( Helix.segmentBuffer.active ) {
 
-        var panel = create3dPanel(
-          150, 100,
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(Math.PI/2, 0, 0),
-          action + helix.info.type,
-          helix.info);
-
-        plane = panel[0];
-        var cssObj = panel[1];
-
-        var xOffset = 100;
-        var yOffset = 50;
-
-        var centerPoint = helix.getCenterFromSurface(mousePointer);
-        var offsetPoint = helix.getCenterFromSurface(mousePointer, xOffset, yOffset)
-
-        plane.position.copy(offsetPoint);
-        cssObj.position.copy(offsetPoint);
-
-        plane.rotation.y = helix.getAngle(centerPoint);
-        cssObj.rotation.y = helix.getAngle(centerPoint);
-
-        // plane.visible = false;
-      // });
-
-
-
-      // var centerPoint = helix.getCenterFromSurface(intersects[ i ].point);
-      // var offset = 100;
-      //
-      // plane.position.copy(helix.getCenterFromSurface(intersects[ i ].point, offset));
-      // cssObject.position.copy(helix.getCenterFromSurface(intersects[ i ].point, offset));
-      //
-      // cssObject.rotation.y = helix.getAngle(centerPoint);
-      // plane.rotation.y = helix.getAngle(centerPoint);
-
-      // Segments inserting START
-      if (segDurationG == 0 ) {
-        segDurationG = Helix.getTimeFromPoint(centerPoint);
-      } else {
-        var changedSegments = pushSegment(createSegment(segDurationG, Helix.getTimeFromPoint(centerPoint)), segmentsG);
-        updateTimeline(scene, segmentsG, changedSegments);
-
-        segDurationG = 0;
-        animate();
+        var newT2 = Helix.getTFromZ(centerPoint.z);
+        var oldT1 = Helix.segmentBuffer.T1;
+        // Protection for T1 to be higher that T2
+        if (oldT1 < newT2) {
+          Helix.segmentBuffer.T2 = newT2;
+        } else {
+          Helix.segmentBuffer.T1 = newT2;
+          Helix.segmentBuffer.T2 = oldT1;
+        }
+        Helix.pushSegment();
+        Helix.segmentBuffer.active = false;
       }
-      // Segments inserting END
 
-      // var dta = new Date();
-      // dta.setTime(Helix.getTimeFromPoint(circleObj.position));
-      // console.log(dta);
+      // var centerPoint = segment.getCenterFromSurface(mousePointer);
+      // var offsetPoint = segment.getCenterFromSurface(mousePointer, xOffset, yOffset)
+      //
+      // // Segments inserting START
+      // if ( segDurationG == 0 ) {
+      //
+      //   segDurationG = Helix.getTFromZ(centerPoint.z);
+      //
+      // } else {
+      //
+      //   var changedSegments = pushSegment(T1, T2);
+      //   // updateTimeline(scene, segmentsG, changedSegments);
+      //
+      //   // segDurationG = 0;
+      //   animate();
+      // }
+      // // Segments inserting END
+
       break;
     } else {
       console.log("Ce ne pas helix");
@@ -1385,17 +1405,17 @@ function rightCliked() {
 
 function doAction (action, onObject, mousePointer) {
 
-  var helix = onObject.dad;
+  var segment = onObject.dad;
 
-  var centerPoint = helix.getCenterFromSurface(mousePointer);
+  var centerPoint = segment.getCenterFromSurface(mousePointer);
 
   // DEBUG
   console.log(onObject);
-  helix.TALK();
+  segment.TALK();
 
   if (action.indexOf('rightClick') >= 0) {
 
-    var freePanel = Panels.placePanel( action, helix, mousePointer, true );
+    var freePanel = Panels.placePanel( action, segment, mousePointer, true );
 
   } else if (action.indexOf('leftClick') >= 0) {
     // generate mediaPanel
@@ -1429,22 +1449,20 @@ function render() {
 
   var intersects = raycaster.intersectObjects( scene.children );
 
-  // if ( intersects.length == 0 ) {Panels.getByProp( "type", "Pointer" ).visible(false)};
-
     for (var i = 0; i < intersects.length; i++) {
 
       var intersecObj = intersects[ i ].object;
-      // console.log(intersecObj, i);
 
       if (intersecObj.hasOwnProperty( "dad" )) {
 
-        var helix = intersecObj.dad;
+        var segment = intersecObj.dad;
 
-        if ( helix.o.type == "Segment" ){
+        if ( segment.o.type == "Segment" ){
 
-          // Panels.placePointerOnHelix( helix, intersects[ 0 ].point );
+          // segment.updateVertices();
 
-          var timePanel = Panels.placePanel( action, helix, intersects[ 0 ].point, true);
+          var timePanel = Panels.placePanel( action, segment, intersects[ 0 ].point, true);
+
           timePanel.setSize(100, 50);
 
           break;
@@ -1470,9 +1488,11 @@ function render() {
   // tubeMesh.rotation.z = timer * 2.5;
 
   renderer.render(scene, camera);
+
   // DEBUG
   stats.update();
   // DEBUG
+
   cssRenderer.render(cssScene, camera);
 }
 
