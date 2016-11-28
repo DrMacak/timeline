@@ -505,6 +505,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
       // Shrink the segment
 
       var lastSegOpt = Object.assign({}, startSegment.o);
+      lastSegOpt.bottomCap = false;
       lastSegOpt.T1 = this.segmentBuffer.T2;
       var lastSegment = self.addSegmentToScene( lastSegOpt );
 
@@ -570,7 +571,9 @@ function The3DpanelCONSTR ( options ) {
    mesh.rotation.y = this.o.rotation.y;
    mesh.rotation.z = this.o.rotation.z;
 
-  //  mesh.name = "interactive";
+   if ( this.o.template != "mouseoverSegment" ) {
+     mesh.name = "inhibit";
+   }
 
    this.plane = mesh;
 
@@ -612,10 +615,10 @@ function The3DpanelCONSTR ( options ) {
     var div = document.createElement('div');
     div.innerHTML = tempHTML;
 
-    div.className = "panel";
+    div.className = "panel3D";
 
-    div.style.width = this.o.width;
-    div.style.height = this.o.height;
+    // div.style.width = this.o.width;
+    // div.style.height = this.o.height;
 
     // div.style.cssText = ("visibility: visible");
 
@@ -663,6 +666,23 @@ function The3DpanelCONSTR ( options ) {
       colInp.setAttribute("id", info.uuid + "ColInp");
       colInp.setAttribute("onchange", "changeObjectPars('"+ info.uuid + "ColInp" +"')");
     }
+
+    //  File Input field
+    if (div.getElementsByClassName('fileInp')[0] !== undefined ) {
+      infoLog("fileInp found");
+      var fileInp = div.getElementsByClassName('fileInp')[0];
+      fileInp.setAttribute("targetID", this.o.uuid);
+    }
+
+    // Panel body on 3D panel add uid of plane to it so I can fill it with media.
+    if (div.getElementsByClassName('panel-body')[0] !== undefined ) {
+      infoLog("panel-body found");
+      var colInp = div.getElementsByClassName('panel-body')[0];
+      // colInp.style.cssText = ("background-color: " +   self._decToColor(info.color));
+      colInp.setAttribute("id", this.o.uuid);
+    }
+
+
 
     // this.html = div;
     return div;
@@ -716,6 +736,16 @@ function The3DpanelCONSTR ( options ) {
     self._updateRingPositionAndRotation();
   }
 
+  this.setPlaneSizeToHTML = function () {
+    // if (document.getElementsByClassName("panel3D")[0] !== undefined ) {
+      console.log(this.html);
+      console.log(this.html.scrollWidth);
+      // debugger;  
+    // }
+      // this.html.scrollWidth
+      // self.setSize( this.html.clientWidth, this.html.clientHeight );
+  }
+
   this._updateRingPositionAndRotation = function () {
 
     var segment = this.o.buddy;
@@ -731,12 +761,6 @@ function The3DpanelCONSTR ( options ) {
 
   this.create3dPanel = function() {
 
-    // if ( this.o.template.indexOf('rightClick') >= 0 || this.o.template == "default" || this.o.template.indexOf('mouseover') >= 0) {
-    //   this.o.type = "FreePanel";
-    // } else {
-    //   this.o.type = "FixPanel";
-    // }
-
     infoLog(" Creating html panel with html from template: " + this.o.template);
     debugLog(self.getPanelPosition());
 
@@ -750,6 +774,9 @@ function The3DpanelCONSTR ( options ) {
     self._createCssObject();
     this.css3d.uuid = this.plane.uuid;
 
+    nodeScriptReplace(this.html);
+
+
     self._createLine();
     self._createPositionRing();
   }
@@ -758,35 +785,35 @@ function The3DpanelCONSTR ( options ) {
       return Math.floor(dec).toString(16).replace("0x","#").toUpperCase() ;
   }
 
-  this.updateObject = function ( newOptions ) {
-
-    var newO = newOptions;
-
-    if ( newO.uuid !== this.o.uuid ) {
-      this.o.uuid = newO.uuid;
-    }
-
-    if ( newO.template !== this.o.template ) {
-      this.o.template = newO.template;
-      // self.putTemplate()
-    }
-
-    if ( newO.width !== this.o.width ) {
-      this.o.width = newO.width;
-    }
-    // this.type = "FreePanel",
-    // this.uuid = "",
-    // this.template = "default",
-    // this.width = 250,
-    // this.height = 150,
-    // this.position = new THREE.Vector3(0, 0, 0),
-    // this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
-    // this.timePosition = 0,
-    // this.color = 0xFFFFFF,
-    // this.visible = true,
-    // this.transparency = 0,
-    // this.buddy = undefined
-  }
+  // this.updateObject = function ( newOptions ) {
+  //
+  //   var newO = newOptions;
+  //
+  //   if ( newO.uuid !== this.o.uuid ) {
+  //     this.o.uuid = newO.uuid;
+  //   }
+  //
+  //   if ( newO.template !== this.o.template ) {
+  //     this.o.template = newO.template;
+  //     // self.putTemplate()
+  //   }
+  //
+  //   if ( newO.width !== this.o.width ) {
+  //     this.o.width = newO.width;
+  //   }
+  //   // this.type = "FreePanel",
+  //   // this.uuid = "",
+  //   // this.template = "default",
+  //   // this.width = 250,
+  //   // this.height = 150,
+  //   // this.position = new THREE.Vector3(0, 0, 0),
+  //   // this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
+  //   // this.timePosition = 0,
+  //   // this.color = 0xFFFFFF,
+  //   // this.visible = true,
+  //   // this.transparency = 0,
+  //   // this.buddy = undefined
+  // }
 
   this.putTemplate = function ( templateN, object ) {
 
@@ -801,6 +828,7 @@ function The3DpanelCONSTR ( options ) {
     debugLog(filledTemplate);
 
     this.html.innerHTML = filledTemplate.innerHTML;
+    nodeScriptReplace(this.html);
   }
 
   this.setRotationY = function ( angle ) {
@@ -997,17 +1025,17 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
   this.objects = [];
 
-  this.isTypeInList = function ( type ) {
-
-    for(var i = 0; i < this.objects.length; i++) {
-
-      if (this.objects[i].o.type == type) {
-        return this.objects[i];
-      }
-
-    }
-    return false;
-  }
+  // this.isTypeInList = function ( type ) {
+  //
+  //   for(var i = 0; i < this.objects.length; i++) {
+  //
+  //     if (this.objects[i].o.type == type) {
+  //       return this.objects[i];
+  //     }
+  //
+  //   }
+  //   return false;
+  // }
 
   this.getByProp = function ( prop, value ) {
     infoLog("Looking for prop: "+prop+ " val: "+ value + " in Objects");
@@ -1061,11 +1089,6 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
         infoLog(onObject.o.name + " - for");
         panel.o.buddy = onObject;
 
-        // panel.o.timePosition = onObject.getCenterFromSurface(mousePointer).z;
-
-        // var xOffset = panel.o.width/2 + onObject.o.thickness + 250;
-        // var yOffset = panel.o.height/2 + onObject.o.thickness + 100 ;
-
         panel.updateCenterPosition( onObject.getCenterFromSurface( mousePointer ) );
         panel.setRotation( camera.rotation );
         panel.updateAccessories();
@@ -1083,16 +1106,10 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
     newOpts.buddy = onObject;
 
-    // var xOffset = newOpts.width / 2 + onObject.o.thickness;
-    // var yOffset = newOpts.height / 2 + onObject.o.thickness;
-
     var centerPoint = onObject.getCenterFromSurface(mousePointer);
     // var offsetPoint = onObject.getCenterFromSurface(mousePointer, xOffset, yOffset);
 
     newOpts.centerPosition =  centerPoint;
-
-
-    // newOpts.timePosition = centerPoint.z;
 
     newOpts.rotation = new THREE.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
 
@@ -1111,6 +1128,8 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
     this.scene3d.add(newPanel.ring);
 
     this.css3dScene.add(newPanel.css3d);
+
+    // newPanel.setPlaneSizeToHTML()
 
     this.objects.push(newPanel);
 
@@ -1323,7 +1342,7 @@ function init(birthDate){
   controls.target.set( 0, 0, 0 );
   controls.rotateSpeed = 4;
   controls.zoomSpeed = 0.1;
-  // controls.panSpeed = 0.4;
+  controls.panSpeed = 0.4;
   controls.noZoom = false;
 
   // cube.rotateX(90);
@@ -1412,29 +1431,16 @@ function leftCliked( circleObj ) {
 
       var intersecObj = intersects[ i ].object;
 
-      if ( intersecObj.hasOwnProperty("dad") ) {
+      if ( intersecObj.name == "inhibit" ) {
+        break;
+      }
+
+      if ( intersecObj.name == "interactive" ) {
+
+        doAction( action, intersecObj, intersects[ i ].point);
 
       // intersecObj.updateVertices();
 
-      var segment = intersecObj.dad;
-      var mousePointer = intersects[ i ].point;
-      var centerPoint = segment.getCenterFromSurface(mousePointer);
-      console.log(intersecObj);
-      segment.TALK();
-
-      if ( Helix.segmentBuffer.active ) {
-
-        Helix.segmentBuffer.T2 = Helix.getTFromZ(centerPoint.z);
-
-        if ( Helix.getTFromZ(centerPoint.z) < Helix.segmentBuffer.T1) {
-          Helix.segmentBuffer.T2 = Helix.segmentBuffer.T1;
-          Helix.segmentBuffer.T1 = Helix.getTFromZ(centerPoint.z);
-        }
-
-
-        Helix.pushSegment();
-        Helix.segmentBuffer.active = false;
-      }
 
       break;
     } else {
@@ -1455,8 +1461,12 @@ function rightCliked() {
 
       var intersecObj = intersects[ i ].object;
 
-      // To know If I clicked on some of mine helix objects.
-      if (intersecObj.hasOwnProperty("dad")) {
+      if ( intersecObj.name == "inhibit" ) {
+        break;
+      }
+
+      // To know if I clicked on some of mine helix objects.
+      if ( intersecObj.name == "interactive" ) {
 
         doAction( action, intersecObj, intersects[ i ].point);
 
@@ -1475,14 +1485,39 @@ function doAction (action, onObject, mousePointer) {
   console.log(onObject);
   segment.TALK();
 
+  // RIGHT CLICK
   if (action.indexOf('rightClick') >= 0) {
 
-    var freePanel = Panels.placePanel( action, segment, mousePointer, true );
+    Panels.placePanel( action, segment, mousePointer, true );
 
+  // LEFT CLICK
   } else if (action.indexOf('leftClick') >= 0) {
-    // generate mediaPanel
+
+    var centerPoint = segment.getCenterFromSurface(mousePointer);
+
+
+    // segment.TALK();
+    // if we are drawing new segment dont place mediaPanel
+    if ( Helix.segmentBuffer.active ) {
+
+      Helix.segmentBuffer.T2 = Helix.getTFromZ(centerPoint.z);
+
+      if ( Helix.getTFromZ(centerPoint.z) < Helix.segmentBuffer.T1) {
+        Helix.segmentBuffer.T2 = Helix.segmentBuffer.T1;
+        Helix.segmentBuffer.T1 = Helix.getTFromZ(centerPoint.z);
+      }
+
+      Helix.segmentBuffer.active = false;
+
+      Helix.pushSegment();
+    } else {
+
+      var panel = Panels.placePanel( action, segment, mousePointer, false );
+      panel.setPlaneSizeToHTML();
+    }
+
   } else {
-    console.log("ERROR: Unknow action");
+    console.log("ERROR: Unknow action " + action);
   }
 
 }
@@ -1505,6 +1540,7 @@ function animate() {
 
 function render() {
 
+
   var action = "mouseover";
 
   raycaster.setFromCamera( mouse, camera );
@@ -1513,10 +1549,15 @@ function render() {
 
   // debugLog(intersects);
 
-    for (var i = 0; i < intersects.length; i++) {
+    for (var i = 100; i < intersects.length; i++) {
 
       var intersecObj = intersects[ i ].object;
 
+      if ( intersecObj.name == "inhibit" ) {
+        Panels.getByProp("template", "mouseoverSegment").visible(false);
+
+        break;
+      }
       // console.log(i +": " + intersecObj.name);
 
       if ( intersecObj.name == "interactive" ) {
@@ -1524,9 +1565,6 @@ function render() {
         var segment = intersecObj.dad;
 
         if ( segment.o.type == "Segment" ) {
-
-
-          // segment.updateVertices();
 
           // Time Panel
           var timePanel = Panels.placePanel( action, segment, intersects[ i ].point, true);
@@ -1542,18 +1580,7 @@ function render() {
 
         }
 
-      } else {
-
-        // var pointer = Panels.isTypeInList( "Pointer" );
-        //
-        // if ( pointer !== false ){
-        //
-        //   pointer.visible( false );
-        //
-        // }
-
       }
-
 
 }
 
@@ -1561,12 +1588,12 @@ function render() {
   // tubeMesh.rotation.z = timer * 2.5;
 
   renderer.render(scene, camera);
+  cssRenderer.render(cssScene, camera);
 
   // DEBUG
   stats.update();
   // DEBUG
 
-  cssRenderer.render(cssScene, camera);
 }
 
 // when ready, start.

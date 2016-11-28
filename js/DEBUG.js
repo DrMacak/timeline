@@ -3,8 +3,8 @@
 //
 ///////////////////////////////////////////////////////////////////
 
-var infoLogging = true;
-var debugLoging = true;
+var infoLogging = false;
+var debugLoging = false;
 
 var stats;
 

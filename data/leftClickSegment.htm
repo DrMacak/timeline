@@ -19,11 +19,21 @@
     <div class="panel-body">
 
       <!-- BUTTON START-->
-      <button class="btn startBtn" type="button" onclick="Err()">
+      <button class="btn addMediaBtn" type="button" onclick="Err()">
         <!-- <span class="glyphicon glyphicon-trash" aria-hidden="true"></span> -->
         <strong>ADD DATA</strong>
       </button>
       <!-- BUTTON END-->
+
+
+      <!-- INPUT START-->
+      <label for="basic-url">Put Image</label>
+      <div class="input-group">
+        <span class="input-group-addon" id="basic-addon3">#</span>
+        <input type="file" class="fileInp form-control " onchange="putImage(this)" aria-describedby="basic-addon3">
+      </div>
+      <!-- INPUT END-->
+
 
     </div>
 
@@ -34,7 +44,29 @@
 
 <script>
   function Err(){
-    // alert("ERROR: Sorry, somthing went horribly wrong.")
+    // alert("ERROR: Sorry, somthing went horribly wrng.")
     console.log("ERROR: Correct JS function was not initialized for this element!");
   }
+
+  function putImage( input ) {
+
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+
+        reader.onload = function ( e ) {
+            var img = document.createElement( 'img' );
+            const targetID = input.getAttribute( "targetID" );
+            img.setAttribute( "src", e.target.result );
+            // console.log(e);
+
+            img.className =  "mediaImg";
+            document.getElementById( targetID ).innerHTML = img.outerHTML;
+
+            // Panels.getByProp().setSize(clientWidth;
+            // var height = img.clientHeight;
+        }
+
+        reader.readAsDataURL(input.files[0]);
+    }
+}
 </script>
