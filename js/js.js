@@ -740,7 +740,7 @@ function The3DpanelCONSTR ( options ) {
     // if (document.getElementsByClassName("panel3D")[0] !== undefined ) {
       console.log(this.html);
       console.log(this.html.scrollWidth);
-      // debugger;  
+      // debugger;
     // }
       // this.html.scrollWidth
       // self.setSize( this.html.clientWidth, this.html.clientHeight );
@@ -784,36 +784,6 @@ function The3DpanelCONSTR ( options ) {
   this._decToColor = function ( dec ) {
       return Math.floor(dec).toString(16).replace("0x","#").toUpperCase() ;
   }
-
-  // this.updateObject = function ( newOptions ) {
-  //
-  //   var newO = newOptions;
-  //
-  //   if ( newO.uuid !== this.o.uuid ) {
-  //     this.o.uuid = newO.uuid;
-  //   }
-  //
-  //   if ( newO.template !== this.o.template ) {
-  //     this.o.template = newO.template;
-  //     // self.putTemplate()
-  //   }
-  //
-  //   if ( newO.width !== this.o.width ) {
-  //     this.o.width = newO.width;
-  //   }
-  //   // this.type = "FreePanel",
-  //   // this.uuid = "",
-  //   // this.template = "default",
-  //   // this.width = 250,
-  //   // this.height = 150,
-  //   // this.position = new THREE.Vector3(0, 0, 0),
-  //   // this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
-  //   // this.timePosition = 0,
-  //   // this.color = 0xFFFFFF,
-  //   // this.visible = true,
-  //   // this.transparency = 0,
-  //   // this.buddy = undefined
-  // }
 
   this.putTemplate = function ( templateN, object ) {
 
@@ -934,49 +904,6 @@ function The3DpanelCONSTR ( options ) {
 }
 
 ///////////////////////////////////////////////////////////////////
-// 3D pointer constructor. DONUT
-//
-///////////////////////////////////////////////////////////////////
-
-// function ThePointerCONSTR (options) {
-  // var self = this;
-  //
-  // this.o = options;
-  //
-  // this.Mesh = undefined;
-  //
-  // this.visible = function ( visible ) {
-  //   if ( visible ) {
-  //
-  //     // infoLog(" Making pointer visible.");
-  //
-  //     this.o.visible = true;
-  //     this.Mesh.visible = true;
-  //   } else {
-  //
-  //     // infoLog(" Making pointer NOT visible.");
-  //
-  //     this.o.visible = false;
-  //     this.Mesh.visible = false;
-  //   }
-  // }
-  //
-  // this.putPosition =  function ( position ) {
-  //   this.Mesh.position.copy(position);
-  //   this.o.position = position;
-  // }
-  //
-  // this.createPointer = function () {
-  //   var material = new THREE.MeshBasicMaterial( { color: this.o.color });
-  //   var geometry = new THREE.TorusGeometry(this.o.radius, this.o.thickness, 20, 100);
-  //   this.Mesh = new THREE.Mesh( geometry, material );
-  //   this.Mesh.visible = this.o.visible;
-  // }
-  //
-  // this.createPointer()
-// }
-
-///////////////////////////////////////////////////////////////////
 // LIST OF PANELS CONSTR
 //
 ///////////////////////////////////////////////////////////////////
@@ -1010,32 +937,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
     // this.type = "FreePanel",
   }
 
-  // function pointerOptionsCONST () {
-  //   this.type = "Pointer",
-  //   this.uuid = "",
-  //   this.radius = 10,
-  //   this.thickness = 3,
-  //   this.position = new THREE.Vector3(0, 0, 0),
-  //   this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
-  //   this.timePosition = 0,
-  //   this.color = 0x000000,
-  //   this.visible = true,
-  //   this.transparency = 0
-  // }
-
   this.objects = [];
-
-  // this.isTypeInList = function ( type ) {
-  //
-  //   for(var i = 0; i < this.objects.length; i++) {
-  //
-  //     if (this.objects[i].o.type == type) {
-  //       return this.objects[i];
-  //     }
-  //
-  //   }
-  //   return false;
-  // }
 
   this.getByProp = function ( prop, value ) {
     infoLog("Looking for prop: "+prop+ " val: "+ value + " in Objects");
@@ -1115,6 +1017,8 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
     newOpts.template = template;
 
+
+
     return self.createPanel( newOpts );
   }
 
@@ -1136,46 +1040,6 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
     return newPanel;
   }
 
-  // this.placePointerOnHelix = function (segment, mousePoint) {
-  //
-  //   var pointer = self.isTypeInList("Pointer");
-  //
-  //   if (pointer !== false) {
-  //
-  //     // infoLog(pointer.o.position.z +" =? "+segment.getCenterFromSurface( mousePoint ).z);
-  //     // if (pointer.o.position.z === segment.getCenterFromSurface( mousePoint ).z) {
-  //     //   return;
-  //     // }
-  //
-  //     var pointerRadius = pointer.Mesh.geometry.parameters.radius;
-  //
-  //     if (pointerRadius == segment.o.thickness) {
-  //
-  //       pointer.visible(true);
-  //
-  //       pointer.putPosition( segment.getCenterFromSurface( mousePoint ) );
-  //
-  //       var helixVector = segment.helixFunction(Helix.getTFromZ(pointer.o.position.z)+0.0001, true);
-  //
-  //       pointer.Mesh.lookAt( helixVector );
-  //
-  //       return;
-  //
-  //     } else {
-  //
-  //       self.removeObject(pointer);
-  //
-  //     }
-  //
-  //   }
-  //
-  //   var pointerOpts = new pointerOptionsCONST();
-  //
-  //   pointerOpts.radius = segment.o.thickness;
-  //
-  //   self.createPointer(pointerOpts);
-  //
-  // }
 
   this.createPointer = function (options) {
 
@@ -1308,12 +1172,6 @@ function init(birthDate){
   sphereInter = new THREE.Mesh( geometry, material );
   sphereInter.visible = false;
   // scene.add( sphereInter );
-
-  // Rounded Square
-  // geometry = new THREE.RoundedSquare(100, 50, 5);
-  // var testSQ = new THREE.Mesh( geometry, material );
-  // scene.add( testSQ );
-
 
   // Donut
   // geometry = new THREE.TorusGeometry(8, 1, 20, 100);
@@ -1475,6 +1333,11 @@ function rightCliked() {
   }
 }
 
+///////////////////////////////////////////////////////////////////
+// DO ACTION
+//
+///////////////////////////////////////////////////////////////////
+
 function doAction (action, onObject, mousePointer) {
 
   var segment = onObject.dad;
@@ -1488,7 +1351,9 @@ function doAction (action, onObject, mousePointer) {
   // RIGHT CLICK
   if (action.indexOf('rightClick') >= 0) {
 
-    Panels.placePanel( action, segment, mousePointer, true );
+    var panel = Panels.placePanel( action, segment, mousePointer, true );
+    panel.setPlaneSizeToHTML();
+
 
   // LEFT CLICK
   } else if (action.indexOf('leftClick') >= 0) {
@@ -1587,13 +1452,17 @@ function render() {
   // var timer = Date.now() * 0.0001;
   // tubeMesh.rotation.z = timer * 2.5;
 
-  renderer.render(scene, camera);
-  cssRenderer.render(cssScene, camera);
+  updateRenderes();
 
   // DEBUG
   stats.update();
   // DEBUG
 
+}
+
+function updateRenderes () {
+  renderer.render(scene, camera);
+  cssRenderer.render(cssScene, camera);
 }
 
 // when ready, start.
