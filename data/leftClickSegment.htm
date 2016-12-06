@@ -1,6 +1,6 @@
 <!-- FOR DEBUG -->
-<!-- <link rel="stylesheet" href="../css/style.css" type="text/css"/>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css"/> -->
+<link rel="stylesheet" href="../css/style.css" type="text/css"/>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css"/>
 <!-- FOR DEBUG -->
 
 
@@ -9,11 +9,14 @@
   <!-- TimeDiv should contain time where clicked -->
   <div class="timeDiv"></div>
 
-  <div id="dataDiv" class="panel panel-primary">
+  <div id="dataDiv" class="panel panel-primary noBottomMargin">
 
-    <div class="panel-heading">
+    <div dragable="true" class="panel-heading noselect">
       Do you wish to create new panel?
-      <span onclick="Err()" class="glyphicon glyphicon-remove pull-right" aria-hidden="true"></span>
+
+      <span  class="glyphicon glyphicon-fullscreen pull-right noselect" aria-hidden="true"></span>
+
+      <span onclick="Err()" class="glyphicon glyphicon-remove pull-right noselect" aria-hidden="true"></span>
     </div>
 
     <div class="panel-body">
@@ -27,7 +30,7 @@
 
 
       <!-- INPUT START-->
-      <label for="basic-url">Put Image</label>
+      <label for="basic-url" class="noselect">Put Image</label>
       <div class="input-group">
         <span class="input-group-addon" id="basic-addon3">#</span>
         <input type="file" class="fileInp form-control " onchange="putImage(this)" aria-describedby="basic-addon3">
@@ -62,6 +65,7 @@
             img.className =  "mediaImg";
             document.getElementById( targetID ).innerHTML = img.outerHTML;
 
+            Panels.getByProp("uuid", targetID).setPlaneSizeToHTML()
             // Panels.getByProp().setSize(clientWidth;
             // var height = img.clientHeight;
         }

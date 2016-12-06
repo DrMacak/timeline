@@ -4,7 +4,8 @@ var camera, scene, renderer,
   cssRenderer, cssScene;
 
 var raycaster, currentIntersected, donutMesh;
-var mouse, INTERSECTED;
+var INTERSECTED;
+var mouse;
 
 // DEBUG
 var cssObject, plane;
@@ -143,7 +144,7 @@ function SegmentCONSTR ( options ) {
 
     capMesh.lookAt( helixVector );
 
-    capMesh.name = "interactive";
+    capMesh.click = "interactive";
 
     this.cap = capMesh;
     this.cap.dad = this;
@@ -169,7 +170,7 @@ function SegmentCONSTR ( options ) {
     var tubeMesh =  new THREE.Mesh ( geometry, material);
 
     tubeMesh.visible = this.o.visible;
-    tubeMesh.name = "interactive";
+    tubeMesh.click = "interactive";
 
     this.Mesh = tubeMesh;
 
@@ -198,12 +199,13 @@ function SegmentCONSTR ( options ) {
   );
 
   // This will give you angle to the center of helix
-  this.getAngle = function(point) {
+  this.getAngle = function( point ) {
 
     var polarity = 1;
     if (point.y < 0) { polarity = -1 }
 
-    var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.radius;
+    var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.helix.radius;
+    // console.log(self.helixFunction(this.o.helix.getTFromZ(point.z), true));
     // var Y = self.helixFunction(this.o.helix.getTFromZ(point.z), true).y/this.radius;
     var angle = Math.acos(X*polarity);
 
@@ -424,7 +426,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
       // newOpts.birthDate = bDate;
       newOpts.T1 = interuptions[i];
       newOpts.T2 = interuptions[i+1];
-      newOpts.name = "Segment #"+i;
+      newOpts.click = "Segment #"+i;
       newOpts.color = Math.random() * 0xffffff;
 
       if ( i == 1 ) {
@@ -475,7 +477,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
     var pushedSegOpt = new segmentOptionsCONSTR();
     pushedSegOpt.helix = this;
-    pushedSegOpt.name = "pushed";
+    pushedSegOpt.click = "pushed";
     pushedSegOpt.color = Math.random() * 0xffffff;
 
 
@@ -555,6 +557,31 @@ function The3DpanelCONSTR ( options ) {
   this.line = undefined;
   this.ring = undefined;
 
+  // Creates 3D panel that means CSS3D based on template name, 3D plane, line and ring on segment.
+  this.create3dPanel = function() {
+
+    infoLog(" Creating html panel with html from template: " + this.o.template);
+    // debugLog(self._getPanelPosition());
+    this.o.panelPosition = self._getPanelPosition();
+
+    self._createPlane();
+    this.o.uuid = this.plane.uuid;
+
+    this.html = self.setTemplateElements();
+
+    // debugLog(this.html);
+
+    self._createCssObject();
+    this.css3d.uuid = this.plane.uuid;
+
+    nodeScriptReplace(this.html);
+
+    self._createLine();
+    self._createPositionRing();
+
+  }
+
+  // Makes 3D plane with 0 opacity as mask for CSS3D
   this._createPlane = function ( ) {
 
     var material = new THREE.MeshBasicMaterial({
@@ -566,13 +593,13 @@ function The3DpanelCONSTR ( options ) {
    var geometry = new THREE.RoundedSquare( this.o.width, this.o.height );
    var mesh = new THREE.Mesh(geometry, material);
 
-   mesh.position.copy( self.getPanelPosition() );
+   mesh.position.copy( this.o.panelPosition );
    mesh.rotation.x = this.o.rotation.x;
    mesh.rotation.y = this.o.rotation.y;
    mesh.rotation.z = this.o.rotation.z;
 
    if ( this.o.template != "mouseoverSegment" ) {
-     mesh.name = "inhibit";
+     mesh.click = "inhibit";
    }
 
    this.plane = mesh;
@@ -581,11 +608,12 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
+  //  Creates CSS3D object same parameters as 3D plane.
   this._createCssObject = function ( ) {
 
     var cssObject = new THREE.CSS3DObject( this.html );
 
-    cssObject.position.copy( self.getPanelPosition() );
+    cssObject.position.copy( this.o.panelPosition );
     cssObject.rotation.x = this.o.rotation.x;
     cssObject.rotation.y = this.o.rotation.y;
     cssObject.rotation.z = this.o.rotation.z;
@@ -598,15 +626,53 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
+  // Line is connecting position ring on segment and panel.
+  this._createLine = function ( ) {
+
+    var lineGeometry = new THREE.Geometry();
+
+    var lineMaterial = new THREE.LineDashedMaterial({
+      //  linewidth: 100,
+      color: 0x000000
+    });
+
+    var segment = this.o.buddy;
+
+    // TBD should Start on edge of position ring
+    lineGeometry.vertices.push( this.o.centerPosition );
+
+    // TBD should end on edge of panel
+    lineGeometry.vertices.push( this.o.panelPosition );
+    // console.log(new THREE.Vector3(0,0));
+
+    var line = new THREE.Line( lineGeometry, lineMaterial );
+
+    this.line = line;
+
+  }
+
+  // Ring showing exact time position of panel on segment.
+  this._createPositionRing = function ( ) {
+
+    var segment = this.o.buddy;
+
+    var material = new THREE.MeshBasicMaterial( { color: 0x000000 });
+    var geometry = new THREE.TorusGeometry(segment.o.thickness, 10, 20, 100);
+    this.ring = new THREE.Mesh( geometry, material );
+
+    self._updateRingPositionAndRotation();
+  }
+
+  // Set Template elements if they are found.
   this.setTemplateElements = function ( ) {
 
     var tempHTML = templatesG[this.o.template];
 
-    var info = undefined;
+    var info = this.o.buddy.o;
 
-    if (this.o.buddy !== undefined ) {
-      info = this.o.buddy.o;
-    }
+    // if (this.o.buddy !== undefined ) {
+    //   info = this.o.buddy.o;
+    // }
 
     infoLog(" setting Template for options: ");
     infoLog(info);
@@ -630,6 +696,13 @@ function The3DpanelCONSTR ( options ) {
       infoLog("glyphicon-remove found");
       var closeCross = div.getElementsByClassName('glyphicon-remove')[0];
       closeCross.setAttribute("onclick", "deleteObjectWRP(['" + this.o.uuid + "'])");
+    }
+
+    // .glyphicon-fullscreen
+    if (div.getElementsByClassName('glyphicon-fullscreen')[0] !== undefined ) {
+      infoLog("glyphicon-fullscreen found");
+      var positionCross = div.getElementsByClassName('glyphicon-fullscreen')[0];
+      positionCross.setAttribute("onclick", "chanegePositionWRP('" + this.o.uuid + "')");
     }
 
     //  Time label
@@ -688,64 +761,13 @@ function The3DpanelCONSTR ( options ) {
     return div;
   }
 
-  this._createLine = function ( ) {
-
-    var lineGeometry = new THREE.Geometry();
-
-    var lineMaterial = new THREE.LineDashedMaterial({
-      //  linewidth: 100,
-	     color: 0x000000
-    });
-
-    var segment = this.o.buddy;
-
-    // Start on center of segment
-    lineGeometry.vertices.push( this.o.centerPosition );
-    // ends on edge of panel
-    lineGeometry.vertices.push( self.getPanelPosition() );
-
-    var line = new THREE.Line( lineGeometry, lineMaterial );
-
-    this.line = line;
-
-    // this.scene3d.add(line);
-  }
-
-  this._updateLineVertices = function ( ) {
-    var newPoints = [];
-
-    var segment = this.o.buddy;
-
-    newPoints.push( this.o.centerPosition );
-
-    newPoints.push( self.getPanelPosition() );
-
-    this.line.geometry.vertices = newPoints;
-
-    this.line.geometry.verticesNeedUpdate = true;
-  }
-
-  this._createPositionRing = function ( ) {
-
-    var segment = this.o.buddy;
-
-    var material = new THREE.MeshBasicMaterial( { color: 0x000000 });
-    var geometry = new THREE.TorusGeometry(segment.o.thickness, 10, 20, 100);
-    this.ring = new THREE.Mesh( geometry, material );
-
+  // Updates line and ring if options are changed
+  this.updateAccessories = function () {
     self._updateRingPositionAndRotation();
+    self._updateLineVertices();
   }
 
-  this.setPlaneSizeToHTML = function () {
-    // if (document.getElementsByClassName("panel3D")[0] !== undefined ) {
-      console.log(this.html);
-      console.log(this.html.scrollWidth);
-      // debugger;
-    // }
-      // this.html.scrollWidth
-      // self.setSize( this.html.clientWidth, this.html.clientHeight );
-  }
-
+  // Updates ring position and rotation
   this._updateRingPositionAndRotation = function () {
 
     var segment = this.o.buddy;
@@ -759,80 +781,130 @@ function The3DpanelCONSTR ( options ) {
     this.ring.lookAt( helixVector );
   }
 
-  this.create3dPanel = function() {
+  // updates line start and end
+  this._updateLineVertices = function ( ) {
+    var newPoints = [];
 
-    infoLog(" Creating html panel with html from template: " + this.o.template);
-    debugLog(self.getPanelPosition());
+    var segment = this.o.buddy;
 
-    self._createPlane();
-    this.o.uuid = this.plane.uuid;
+    newPoints.push( this.o.centerPosition );
 
-    this.html = self.setTemplateElements();
+    newPoints.push( this.o.panelPosition );
 
-    // debugLog(this.html);
+    this.line.geometry.vertices = newPoints;
 
-    self._createCssObject();
-    this.css3d.uuid = this.plane.uuid;
-
-    nodeScriptReplace(this.html);
-
-
-    self._createLine();
-    self._createPositionRing();
+    this.line.geometry.verticesNeedUpdate = true;
   }
 
   this._decToColor = function ( dec ) {
-      return Math.floor(dec).toString(16).replace("0x","#").toUpperCase() ;
+    return Math.floor(dec).toString(16).replace("0x","#").toUpperCase() ;
   }
 
-  this.putTemplate = function ( templateN, object ) {
-
-    this.o.template = templateN;
-
-    infoLog(" templateName: "+ templateN);
-    var emptyTemplate = templatesG[this.o.template];
-
-    var filledTemplate = self.setTemplateElements( );
-
-    infoLog(" Filled template from putTemplate: ");
-    debugLog(filledTemplate);
-
-    this.html.innerHTML = filledTemplate.innerHTML;
-    nodeScriptReplace(this.html);
-  }
-
-  this.setRotationY = function ( angle ) {
-
-    this.plane.rotation.y = angle;
-    this.css3d.rotation.y = angle;
-    this.o.rotation = this.plane.rotation;
-
-  }
-
-  this.getPanelPosition = function ( ) {
+  // Return panel position computed from center position and offsets.
+  this._getPanelPosition = function ( ) {
     return this.o.buddy.helixFunction(
       Helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX,
       this.o.offsetY);
+    }
+
+  // Set size of Plane to match the size of html panel. This has to be called after the html is rendered otherwise it sets 0,0
+  this.setPlaneSizeToHTML = function () {
+
+      self.setSize( this.html.offsetWidth, this.html.offsetHeight );
+
+      this.html.style.width = "";
+      this.html.style.height = "";
+
+      // console.log( this.html.offsetWidth+ " w and h " +this.html.offsetHeight );
+
+  }
+
+  // adds offset
+  this.moveOffset =  function ( offsetDiffX, offsetDiffY ) {
+
+    this.o.offsetX += offsetDiffX;
+    this.o.offsetY += offsetDiffY;
+    this.o.panelPosition = self._getPanelPosition();
+    this.plane.position.copy(this.o.panelPosition);
+    this.css3d.position.copy(this.o.panelPosition);
+    self._updateLineVertices();
+    // update position and line
+  }
+
+  var vA = 0;
+  var vB = 0;
+
+  this.setOffsetToCursor = function ( point ) {
+
+    vA = point;
+
+    var dxOffset = 0;
+    var dyOffset = 0;
+
+    if ( vB != 0 ) {
+      getOffsets( vA, vB);
+      self.moveOffset( dxOffset, dyOffset );
+      vB = vA;
+      return;
+    }
+
+    vB = vA;
+
+    // console.log(vA, vB);
+
+
+    function getOffsets( A, B ) {
+      var vector = new THREE.Vector3();
+      vector.subVectors( A, B );
+      // console.log( vector );
+
+      var manhLength = vector.length();
+      dyOffset = A.z - B.z;
+      var pol = 1;
+      if ( A.x >  B.x ) { pol = -1}
+      dxOffset = Math.sqrt( Math.pow(manhLength, 2) - Math.pow(dyOffset, 2) ) * pol;
+
+      console.log("dXO: " + dxOffset + " dY0: " + dyOffset);
+
+    }
+
+    return;
+  }
+
+  this.flushOffsetBuffer = function () {
+    vA = 0;
+    vB = 0;
   }
 
   this.updateCenterPosition = function ( newPosition ) {
+
     this.o.centerPosition = newPosition;
-    this.plane.position.copy(self.getPanelPosition());
-    this.css3d.position.copy(self.getPanelPosition());
+    this.o.panelPosition = self._getPanelPosition();
+    this.plane.position.copy(this.o.panelPosition);
+    this.css3d.position.copy(this.o.panelPosition);
     self.updateAccessories();
     // self._updateLineVertices();
     // self.__updateRingPositionAndRotation();
 
   }
 
-  this.setNewOffsets = function ( xOff, yOff ) {
+  // this.setNewOffsets = function ( xOff, yOff ) {
+  //
+  //   this.o.offsetX = xOff;
+  //   this.o.offsetY = yOff;
+  //
+  //   self.updatePosition();
+  //
+  // }
 
-    this.o.offsetX = xOff;
-    this.o.offsetY = yOff;
 
-    self.updatePosition();
+  this.setRotationY = function ( angle ) {
+
+    this.plane.rotation.y = angle;
+    this.css3d.rotation.y = angle;
+    this.o.rotation = this.plane.rotation;
 
   }
 
@@ -850,14 +922,17 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
-  this.updateAccessories = function () {
-    self._updateRingPositionAndRotation();
-    self._updateLineVertices();
+  this.updateTemplate = function () {
+
     this.html.innerHTML = self.setTemplateElements().innerHTML;
+
   }
 
+  // sets size of 3D plane and also CSS element.
+  // Also makes new geometry of rounded square.
   this.setSize = function ( w, h ) {
 
+    // Do not change if its the same
     if ( this.o.width != w || this.o.height != h ) {
 
       this.html.style.width = w;
@@ -866,13 +941,14 @@ function The3DpanelCONSTR ( options ) {
       this.o.width = w;
       this.o.height = h;
 
-      this.plane.geometry = new THREE.RoundedSquare(w, h);
+      this.plane.geometry = new THREE.RoundedSquare(w, h, 4);
     }
   }
 
+  // Sets all components of 3D Panel visibility
   this.visible = function ( visible ) {
 
-    if (visible) {
+    if ( visible ) {
 
       infoLog(" Making panel visible.")
 
@@ -916,7 +992,6 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
   this.css3dScene = cssScene;
 
   this.panelConstructor = panelConst;
-  // this.pointerConstructor = pointerConst;
 
   function objectOptionsCONST () {
     this.uuid = "",
@@ -971,33 +1046,38 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
   this.placePanel = function ( action, onObject, mousePointer, unique ) {
 
+      // Template name is combination of action and object.
       var template = action + onObject.o.type;
-
 
       var panel = self.getByProp( "template", template );
 
+      // If panel exists and is meant only once in scene
       if ( panel !== undefined && unique ) {
 
         var newZ = onObject.getCenterFromSurface(mousePointer).z;
         var oldZ = panel.o.centerPosition.z;
 
+        // If panel position did not changed significantly, dont do anythin.
         if ( Math.floor(newZ) == Math.floor(oldZ) ) {
           // infoLog("Skipping the update");
           return panel;
         }
 
-        // Update dont remove
-        // console.log("PANEL FOUND UPDATING");
-        infoLog(onObject.o.name + " - for");
+        // If panel exist and its position changed Update panel data.
         panel.o.buddy = onObject;
 
         panel.updateCenterPosition( onObject.getCenterFromSurface( mousePointer ) );
+
         panel.setRotation( camera.rotation );
+
         panel.updateAccessories();
-        panel.setTemplateElements();
-        // panel.html
-        // self.removeObject( panel );
+        panel.updateTemplate();
+
+        // panel.setTemplateElements();
         panel.visible(true);
+
+        // updateRenderes();
+        panel.setPlaneSizeToHTML();
 
         return panel;
       }
@@ -1013,13 +1093,31 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
     newOpts.centerPosition =  centerPoint;
 
-    newOpts.rotation = new THREE.Vector3(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+    console.log(action.indexOf('leftClick'));
+
+    if ( action.indexOf('leftClick') >= 0 ) {
+
+      // panel.setRotationY(  );
+
+
+      newOpts.rotation = new THREE.Vector3( Math.PI/2, onObject.getAngle( centerPoint ), 0);
+      // controls.target.set( newOpts.centerPosition );
+
+    } else {
+
+      newOpts.rotation = camera.rotation ;
+
+    }
 
     newOpts.template = template;
 
+    var newPanel = self.createPanel( newOpts );
 
+    updateRenderes( );
 
-    return self.createPanel( newOpts );
+    newPanel.setPlaneSizeToHTML();
+
+    return newPanel;
   }
 
   this.createPanel = function ( options ) {
@@ -1033,23 +1131,23 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
     this.css3dScene.add(newPanel.css3d);
 
-    // newPanel.setPlaneSizeToHTML()
-
     this.objects.push(newPanel);
+
+    // updateRenderes()
 
     return newPanel;
   }
 
 
-  this.createPointer = function (options) {
-
-    var newPointer = new this.pointerConstructor( options );
-
-    this.scene3d.add( newPointer.Mesh );
-
-    this.objects.push( newPointer );
-
-  }
+  // this.createPointer = function (options) {
+  //
+  //   var newPointer = new this.pointerConstructor( options );
+  //
+  //   this.scene3d.add( newPointer.Mesh );
+  //
+  //   this.objects.push( newPointer );
+  //
+  // }
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -1061,11 +1159,20 @@ function init(birthDate){
 
   var viewDistance = 10000;
 
+  placeEventListeners();
+
   raycaster = new THREE.Raycaster();
   raycaster.near = 1;
   raycaster.far = viewDistance;
 
+// PROTO
   mouse = new THREE.Vector2();
+
+  mouse.dragging = false;
+  mouse.leftCliked = 0;
+  mouse.rightCliked = 0;
+
+
 
   renderer = createGlRenderer();
   cssRenderer = createCssRenderer();
@@ -1171,7 +1278,7 @@ function init(birthDate){
 	material = new THREE.MeshBasicMaterial( { color: 0xff0000 });
   sphereInter = new THREE.Mesh( geometry, material );
   sphereInter.visible = false;
-  // scene.add( sphereInter );
+  scene.add( sphereInter );
 
   // Donut
   // geometry = new THREE.TorusGeometry(8, 1, 20, 100);
@@ -1202,17 +1309,40 @@ function init(birthDate){
   controls.zoomSpeed = 0.1;
   controls.panSpeed = 0.4;
   controls.noZoom = false;
+  controls.addEventListener( 'change', render );
 
   // cube.rotateX(90);
   // axes
   axes = new THREE.AxisHelper( 100 );
   scene.add( axes );
 
-  controls.addEventListener( 'change', render );
+  function placeEventListeners (){
+
   window.addEventListener( 'resize', onWindowResize, false );
   document.addEventListener( 'mousemove', onMouseMove, false );
-  document.addEventListener( 'mousedown', function(e) { if (e.which == 1) {leftCliked(circleTest);} else if (e.which == 3) {rightCliked();} }, false );
-  // debugger;
+  document.addEventListener( 'mousedown', function (e) { mouseDown(e) }, false );
+
+  // function(e) {
+  //   if (e.which == 1) {
+  //     console.log("leftDOWN");
+  //     mouse.leftCliked = true;
+  //     leftCliked(e);
+  //   } else if (e.which == 3) {
+  //     mouse.rightCliked = true;
+  //     rightCliked(e);
+  //   }
+  // }
+
+  document.addEventListener( 'mouseup', function(e) {
+    if (e.which == 1) {
+      console.log("leftUP");
+      mouse.leftCliked = false;
+    } else if (e.which == 3) {
+      mouse.rightCliked = false;
+    }
+  }, false );
+}
+
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -1262,76 +1392,139 @@ function startNewSegmentWRP ( T1, PanelUuid ) {
     }
 }
 
-function changeSegmentWRP (segInfo) {
-  changeSegmentPars (segInfo);
-  hidePanel(panelId);
+
+function chanegePositionWRP ( uuid ) {
+  console.log(mouse);
+  mouse.dragging = true;
+    // while (mouse.leftCliked) {
+    //   console.log("pini");
+    // }
 }
 
-
-function hidePanel (id) {
-  document.getElementById(id).style.cssText += ("visible: false");
-}
+// function changeSegmentWRP (segInfo) {
+//   changeSegmentPars (segInfo);
+//   hidePanel(panelId);
+// }
+//
+//
+// function hidePanel (id) {
+//   document.getElementById(id).style.cssText += ("visible: false");
+// }
 
 ///////////////////////////////////////////////////////////////////
 // Mouse clicks
 //
 ///////////////////////////////////////////////////////////////////
 
-/////////////////////// LEFT CLICK ////////////////////////////////
 
-function leftCliked( circleObj ) {
+/////////////////////// MOUSE CLICK ////////////////////////////////
 
-  var action = "leftClick";
+function mouseDown ( e ) {
+
+  var action = "";
+
+  if (e.which == 1) {
+
+    action = "leftClick";
+    mouse.leftCliked = true;
+
+  } else if (e.which == 3) {
+
+    action = "rightClick";
+    mouse.rightCliked = true;
+
+  }
 
   var intersects = raycaster.intersectObjects( scene.children );
 
     for (var i = 0; i < intersects.length; i++) {
 
-      var intersecObj = intersects[ i ].object;
+      var intersect = intersects[ i ];
 
-      if ( intersecObj.name == "inhibit" ) {
+      if ( intersect.object.click == "inhibit" ) {
         break;
       }
 
-      if ( intersecObj.name == "interactive" ) {
+      if ( intersect.object.click == "interactive" ) {
 
-        doAction( action, intersecObj, intersects[ i ].point);
+        doAction( action, intersect.object, intersect.point );
 
-      // intersecObj.updateVertices();
+        break;
+      }
 
-
-      break;
-    } else {
-      console.log("Ce ne pas helix");
-    }
   }
+
 }
+
+
+/////////////////////// LEFT CLICK ////////////////////////////////
+
+// function leftCliked( event ) {
+//
+//   var action = "leftClick";
+//
+// // PROTO
+//   // var x = event.clientX, y = event.clientY,
+//   // elementMouseIsOver = document.elementFromPoint(x, y);
+//   // console.log(elementMouseIsOver);
+//   //
+//   // if ( elementMouseIsOver.hasAttribute("dragable")) {
+//   //   console.log("pini1234");
+//   //
+//   //   while (mouse.leftCliked) {
+//   //     console.log("pini");
+//   //   }
+//   // }
+//
+//   // PROTO
+//
+//   var intersects = raycaster.intersectObjects( scene.children );
+//
+//     for (var i = 0; i < intersects.length; i++) {
+//
+//       var intersecObj = intersects[ i ].object;
+//
+//       if ( intersecObj.click == "inhibit" ) {
+//         break;
+//       }
+//
+//       if ( intersecObj.click == "interactive" ) {
+//
+//         doAction( action, intersecObj, intersects[ i ].point);
+//
+//       // intersecObj.updateVertices();
+//
+//       break;
+//     }
+//
+//   }
+// }
 
 //////////////// RIGHT CLICK ///////////////////
 
-function rightCliked() {
-
-  const action = "rightClick";
-
-  var intersects = raycaster.intersectObjects( scene.children );
-
-    for (var i = 0; i < intersects.length; i++) {
-
-      var intersecObj = intersects[ i ].object;
-
-      if ( intersecObj.name == "inhibit" ) {
-        break;
-      }
-
-      // To know if I clicked on some of mine helix objects.
-      if ( intersecObj.name == "interactive" ) {
-
-        doAction( action, intersecObj, intersects[ i ].point);
-
-        break;
-    }
-  }
-}
+// function rightCliked( event ) {
+//
+//   const action = "rightClick";
+//
+//   var intersects = raycaster.intersectObjects( scene.children );
+//
+//     for (var i = 0; i < intersects.length; i++) {
+//
+//       var intersecObj = intersects[ i ].object;
+//
+//       if ( intersecObj.click == "inhibit" ) {
+//         break;
+//       }
+//
+//       // To know if I clicked on some of mine helix objects.
+//       if ( intersecObj.click == "interactive" ) {
+//
+//         doAction( action, intersecObj, intersects[ i ].point);
+//
+//         break;
+//     }
+//   }
+// }
 
 ///////////////////////////////////////////////////////////////////
 // DO ACTION
@@ -1357,6 +1550,8 @@ function doAction (action, onObject, mousePointer) {
 
   // LEFT CLICK
   } else if (action.indexOf('leftClick') >= 0) {
+
+
 
     var centerPoint = segment.getCenterFromSurface(mousePointer);
 
@@ -1393,6 +1588,14 @@ function doAction (action, onObject, mousePointer) {
 ///////////////////////////////////////////////////////////////////
 
 function animate() {
+  //
+  // setTimeout( function() {
+  //
+  //      requestAnimationFrame( animate );
+  //
+  //  }, 10000 / 30 );
+  //
+
   controls.update();
   render();
   requestAnimationFrame( animate );
@@ -1405,8 +1608,8 @@ function animate() {
 
 function render() {
 
-
   var action = "mouseover";
+
 
   raycaster.setFromCamera( mouse, camera );
 
@@ -1414,18 +1617,47 @@ function render() {
 
   // debugLog(intersects);
 
-    for (var i = 100; i < intersects.length; i++) {
+    for (var i = 0; i < intersects.length; i++) {
 
       var intersecObj = intersects[ i ].object;
+      var intersecPoint = intersects[ i ].point;
 
-      if ( intersecObj.name == "inhibit" ) {
+      if ( intersecObj.click == "inhibit" ) {
+
         Panels.getByProp("template", "mouseoverSegment").visible(false);
+
+        // PROTO
+        // IF LEFT button is pressed
+        var panel = intersecObj.dad;
+
+        sphereInter.visible =true;
+        sphereInter.position.copy ( intersecPoint );
+
+        if ( mouse.leftCliked ) {
+          console.log("leftCliked");
+          var x = mouse.clientX, y = mouse.clientY,
+          elementMouseIsOver = document.elementFromPoint(x, y);
+
+          // IF IM ON DRAGABLE ELEMENT
+          if ( elementMouseIsOver.hasAttribute("dragable")) {
+
+            // mouse.dragging = true;
+            controls.enabled = false;
+
+            panel.setOffsetToCursor( intersecPoint );
+
+          }
+
+        } else {
+          panel.flushOffsetBuffer();
+        }
 
         break;
       }
-      // console.log(i +": " + intersecObj.name);
 
-      if ( intersecObj.name == "interactive" ) {
+      // console.log(i +": " + intersecObj.click);
+
+      if ( intersecObj.click == "interactive" ) {
 
         var segment = intersecObj.dad;
 
@@ -1434,7 +1666,7 @@ function render() {
           // Time Panel
           var timePanel = Panels.placePanel( action, segment, intersects[ i ].point, true);
 
-          timePanel.setSize(100, 50);
+          // timePanel.setSize(100, 50);
           // debugger;
 
           // Segment preview
@@ -1454,6 +1686,14 @@ function render() {
 
   updateRenderes();
 
+  // if ( ! mouse.dragging ) {
+  //
+  // }
+  controls.enabled = true;
+
+  mouse.dragging = false;
+
+  // console.log("dragging NOT");
   // DEBUG
   stats.update();
   // DEBUG

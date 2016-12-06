@@ -17,6 +17,15 @@ function onMouseMove( event ) {
 	// (-1 to +1) for both components
 	mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1; //1.009
 	mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1; //1.015
+
+	// if ( mouse.leftCliked ) {
+	// 	event.stopPropagation();
+	// }
+	mouse.diffX = mouse.clientX - event.clientX;
+	mouse.diffY = mouse.clientY - event.clientY;
+
+	mouse.clientX = event.clientX;
+	mouse.clientY = event.clientY;
 }
 
 
