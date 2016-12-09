@@ -12,6 +12,9 @@
   /*color: red;*/
 }
 
+.dragable {
+  cursor: move;
+}
 
 .noselect {
   -webkit-touch-callout: none; /* iOS Safari */

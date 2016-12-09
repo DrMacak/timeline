@@ -557,6 +557,8 @@ function The3DpanelCONSTR ( options ) {
   this.line = undefined;
   this.ring = undefined;
 
+  this.mathPlane = new THREE.Plane();
+
   // Creates 3D panel that means CSS3D based on template name, 3D plane, line and ring on segment.
   this.create3dPanel = function() {
 
@@ -566,6 +568,8 @@ function The3DpanelCONSTR ( options ) {
 
     self._createPlane();
     this.o.uuid = this.plane.uuid;
+
+    self._setMathPlane();
 
     this.html = self.setTemplateElements();
 
@@ -605,6 +609,19 @@ function The3DpanelCONSTR ( options ) {
    this.plane = mesh;
 
    this.plane.dad = this;
+
+  }
+
+  // Creates math plane. Planes thats defined by 3 coplanar points is used for moving 3d plane around.
+  this._setMathPlane = function () {
+
+    var pointC = this.o.buddy.helixFunction(
+      Helix.getTFromZ(this.o.centerPosition.z),
+      true,
+      this.o.offsetX + 100,
+      this.o.offsetY + 100);
+
+    this.mathPlane.setFromCoplanarPoints( this.o.centerPosition, this.o.panelPosition, pointC );
 
   }
 
@@ -827,8 +844,8 @@ function The3DpanelCONSTR ( options ) {
     this.o.offsetX += offsetDiffX;
     this.o.offsetY += offsetDiffY;
     this.o.panelPosition = self._getPanelPosition();
-    this.plane.position.copy(this.o.panelPosition);
-    this.css3d.position.copy(this.o.panelPosition);
+    this.plane.position.copy( this.o.panelPosition );
+    this.css3d.position.copy( this.o.panelPosition );
     self._updateLineVertices();
     // update position and line
   }
@@ -844,30 +861,30 @@ function The3DpanelCONSTR ( options ) {
     var dyOffset = 0;
 
     if ( vB != 0 ) {
-      getOffsets( vA, vB);
+      getOffsets( vA, vB );
       self.moveOffset( dxOffset, dyOffset );
+
+      // Shift vector buffer
       vB = vA;
+
       return;
     }
 
+    // Shift vector buffer
     vB = vA;
 
-    // console.log(vA, vB);
-
-
     function getOffsets( A, B ) {
+
       var vector = new THREE.Vector3();
       vector.subVectors( A, B );
-      // console.log( vector );
+      var vectorLen = vector.length();
 
-      var manhLength = vector.length();
       dyOffset = A.z - B.z;
+
       var pol = 1;
-      if ( A.x >  B.x ) { pol = -1}
-      dxOffset = Math.sqrt( Math.pow(manhLength, 2) - Math.pow(dyOffset, 2) ) * pol;
+      if ( Math.abs( A.x ) < Math.abs( B.x ) ) {  pol = -1; }
 
-      console.log("dXO: " + dxOffset + " dY0: " + dyOffset);
-
+      dxOffset = Math.sqrt( Math.pow( vectorLen, 2) - Math.pow( dyOffset, 2) ) * pol;
     }
 
     return;
@@ -1337,8 +1354,16 @@ function init(birthDate){
     if (e.which == 1) {
       console.log("leftUP");
       mouse.leftCliked = false;
+
+      mouse.dragging = false;
+      controls.enabled = true;
+      if (mouse.draggedPanel) {
+        mouse.draggedPanel.flushOffsetBuffer();
+      }
     } else if (e.which == 3) {
+
       mouse.rightCliked = false;
+
     }
   }, false );
 }
@@ -1423,6 +1448,8 @@ function mouseDown ( e ) {
 
   var action = "";
 
+  e.preventDefault();
+
   if (e.which == 1) {
 
     action = "leftClick";
@@ -1442,6 +1469,9 @@ function mouseDown ( e ) {
       var intersect = intersects[ i ];
 
       if ( intersect.object.click == "inhibit" ) {
+
+        checkDragging( action, intersect.object );
+
         break;
       }
 
@@ -1456,80 +1486,29 @@ function mouseDown ( e ) {
 
 }
 
-
-/////////////////////// LEFT CLICK ////////////////////////////////
-
-// function leftCliked( event ) {
-//
-//   var action = "leftClick";
-//
-// // PROTO
-//   // var x = event.clientX, y = event.clientY,
-//   // elementMouseIsOver = document.elementFromPoint(x, y);
-//   // console.log(elementMouseIsOver);
-//   //
-//   // if ( elementMouseIsOver.hasAttribute("dragable")) {
-//   //   console.log("pini1234");
-//   //
-//   //   while (mouse.leftCliked) {
-//   //     console.log("pini");
-//   //   }
-//   // }
-//
-//   // PROTO
-//
-//   var intersects = raycaster.intersectObjects( scene.children );
-//
-//     for (var i = 0; i < intersects.length; i++) {
-//
-//       var intersecObj = intersects[ i ].object;
-//
-//       if ( intersecObj.click == "inhibit" ) {
-//         break;
-//       }
-//
-//       if ( intersecObj.click == "interactive" ) {
-//
-//         doAction( action, intersecObj, intersects[ i ].point);
-//
-//       // intersecObj.updateVertices();
-//
-//       break;
-//     }
-//
-//   }
-// }
-
-//////////////// RIGHT CLICK ///////////////////
-
-// function rightCliked( event ) {
-//
-//   const action = "rightClick";
-//
-//   var intersects = raycaster.intersectObjects( scene.children );
-//
-//     for (var i = 0; i < intersects.length; i++) {
-//
-//       var intersecObj = intersects[ i ].object;
-//
-//       if ( intersecObj.click == "inhibit" ) {
-//         break;
-//       }
-//
-//       // To know if I clicked on some of mine helix objects.
-//       if ( intersecObj.click == "interactive" ) {
-//
-//         doAction( action, intersecObj, intersects[ i ].point);
-//
-//         break;
-//     }
-//   }
-// }
-
 ///////////////////////////////////////////////////////////////////
 // DO ACTION
 //
 ///////////////////////////////////////////////////////////////////
+
+function checkDragging ( action, panel ) {
+
+  if (action.indexOf('leftClick') >= 0) {
+
+    var x = mouse.clientX, y = mouse.clientY;
+    var elementMouseIsOver = document.elementFromPoint(x, y);
+
+    // IF IM ON DRAGABLE ELEMENT
+    if ( elementMouseIsOver.hasAttribute("dragable")) {
+
+      controls.enabled = false;
+      mouse.dragging = true;
+      console.log("drg");
+      mouse.draggedPanel = panel.dad;
+    }
+  }
+
+}
 
 function doAction (action, onObject, mousePointer) {
 
@@ -1549,12 +1528,11 @@ function doAction (action, onObject, mousePointer) {
 
 
   // LEFT CLICK
-  } else if (action.indexOf('leftClick') >= 0) {
+  } else if ( action.indexOf('leftClick') >= 0 ) {
 
 
 
     var centerPoint = segment.getCenterFromSurface(mousePointer);
-
 
     // segment.TALK();
     // if we are drawing new segment dont place mediaPanel
@@ -1626,36 +1604,10 @@ function render() {
 
         Panels.getByProp("template", "mouseoverSegment").visible(false);
 
-        // PROTO
-        // IF LEFT button is pressed
         var panel = intersecObj.dad;
-
-        sphereInter.visible =true;
-        sphereInter.position.copy ( intersecPoint );
-
-        if ( mouse.leftCliked ) {
-          console.log("leftCliked");
-          var x = mouse.clientX, y = mouse.clientY,
-          elementMouseIsOver = document.elementFromPoint(x, y);
-
-          // IF IM ON DRAGABLE ELEMENT
-          if ( elementMouseIsOver.hasAttribute("dragable")) {
-
-            // mouse.dragging = true;
-            controls.enabled = false;
-
-            panel.setOffsetToCursor( intersecPoint );
-
-          }
-
-        } else {
-          panel.flushOffsetBuffer();
-        }
 
         break;
       }
-
-      // console.log(i +": " + intersecObj.click);
 
       if ( intersecObj.click == "interactive" ) {
 
@@ -1665,9 +1617,6 @@ function render() {
 
           // Time Panel
           var timePanel = Panels.placePanel( action, segment, intersects[ i ].point, true);
-
-          // timePanel.setSize(100, 50);
-          // debugger;
 
           // Segment preview
           // Helix.segmentBuffer.putT( Helix.getTFromZ( intersects[ 0 ].z) );
@@ -1686,14 +1635,6 @@ function render() {
 
   updateRenderes();
 
-  // if ( ! mouse.dragging ) {
-  //
-  // }
-  controls.enabled = true;
-
-  mouse.dragging = false;
-
-  // console.log("dragging NOT");
   // DEBUG
   stats.update();
   // DEBUG

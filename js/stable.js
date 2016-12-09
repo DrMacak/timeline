@@ -18,9 +18,27 @@ function onMouseMove( event ) {
 	mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1; //1.009
 	mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1; //1.015
 
-	// if ( mouse.leftCliked ) {
-	// 	event.stopPropagation();
-	// }
+	console.log(mouse.dragging);
+
+	if ( mouse.dragging ) {
+
+		// var x = mouse.clientX, y = mouse.clientY,
+		// elementMouseIsOver = document.elementFromPoint(x, y);
+
+		// IF IM ON DRAGABLE ELEMENT
+		// if ( elementMouseIsOver.hasAttribute("dragable")) {
+
+			var planeIntersection = new THREE.Vector3();
+			raycaster.ray.intersectPlane( mouse.draggedPanel.mathPlane, planeIntersection );
+			// mouse.dragging = true;
+			// controls.enabled = false;
+			// console.log(planeIntersection);
+			mouse.draggedPanel.setOffsetToCursor( planeIntersection );
+
+		// }
+
+	}
+
 	mouse.diffX = mouse.clientX - event.clientX;
 	mouse.diffY = mouse.clientY - event.clientY;
 
