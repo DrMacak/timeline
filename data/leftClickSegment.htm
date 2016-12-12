@@ -65,7 +65,8 @@
             img.className =  "mediaImg";
             document.getElementById( targetID ).innerHTML = img.outerHTML;
 
-            Panels.getByProp("uuid", targetID).setPlaneSizeToHTML()
+            Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
+            // console.log(Panels.getByProp("uuid", targetID));
             // Panels.getByProp().setSize(clientWidth;
             // var height = img.clientHeight;
         }

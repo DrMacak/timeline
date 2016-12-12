@@ -61,19 +61,18 @@ function createCssRenderer() {
   return cssRenderer;
 }
 
-
 ///////////////////////////////////////////////////////////////////
 // Creates WebGL Renderer
 //
 ///////////////////////////////////////////////////////////////////
 
 function createGlRenderer() {
- var glRenderer = new THREE.WebGLRenderer({alpha:true});
+ var glRenderer = new THREE.WebGLRenderer({ alpha:true, antialias: true });
  glRenderer.setSize(window.innerWidth, window.innerHeight);
  glRenderer.domElement.style.position = 'absolute';
  glRenderer.domElement.style.zIndex = 1;
  glRenderer.domElement.style.top = 0;
- // glRenderer.setPixelRatio(window.devicePixelRatio);
+ glRenderer.setPixelRatio(window.devicePixelRatio);
  glRenderer.setClearColor(0xECF8FF);
  return glRenderer;
 }

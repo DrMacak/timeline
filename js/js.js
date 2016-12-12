@@ -109,7 +109,7 @@ function SegmentCONSTR ( options ) {
   }
 
   // Is reducing polygons based on ration of segment to whole helix
-  this._getReducedPolygons = function(polygons) {
+  this._getReducedPolygons = function( polygons ) {
 
     var threshHold = 100;
 
@@ -1172,9 +1172,9 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 //
 ///////////////////////////////////////////////////////////////////
 
-function init(birthDate){
+function init( birthDate ){
 
-  var viewDistance = 10000;
+  var viewDistance = 50000;
 
   placeEventListeners();
 
@@ -1186,15 +1186,14 @@ function init(birthDate){
   mouse = new THREE.Vector2();
 
   mouse.dragging = false;
+
+  // Should be remove as it is not needed anymore?
   mouse.leftCliked = 0;
   mouse.rightCliked = 0;
-
-
 
   renderer = createGlRenderer();
   cssRenderer = createCssRenderer();
 
-  // debugLog(renderer.getPrecision ());
   document.body.appendChild(cssRenderer.domElement);
   // This is important so you can click on embeded html!
   renderer.domElement.style.pointerEvents = "none";
@@ -1219,7 +1218,8 @@ function init(birthDate){
   // set some camera attributes
   var VIEW_ANGLE = 45,
     ASPECT = window.innerWidth / window.innerHeight,
-    NEAR = 0.1;
+    // should be higher to improve zbuffer resolution.
+    NEAR = 100;
 
   camera = new THREE.PerspectiveCamera(
       VIEW_ANGLE,
