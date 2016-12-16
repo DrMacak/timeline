@@ -5,14 +5,14 @@
 
 .panel3D {
   /*text-align: center;*/
-  background-color: red;
+  background-color: white;
   display: inline-block;
   /*width: 350px;*/
 
   /*color: red;*/
 }
 
-.dragable {
+.draggable {
   cursor: move;
 }
 

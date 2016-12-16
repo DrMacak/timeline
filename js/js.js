@@ -583,6 +583,8 @@ function The3DpanelCONSTR ( options ) {
     self._createLine();
     self._createPositionRing();
 
+    // self.setLineTouchingPoint();
+
   }
 
   // Makes 3D plane with 0 opacity as mask for CSS3D
@@ -665,6 +667,7 @@ function The3DpanelCONSTR ( options ) {
     var line = new THREE.Line( lineGeometry, lineMaterial );
 
     this.line = line;
+
 
   }
 
@@ -799,14 +802,17 @@ function The3DpanelCONSTR ( options ) {
   }
 
   // updates line start and end
-  this._updateLineVertices = function ( ) {
-    var newPoints = [];
+  this._updateLineVertices = function ( panelPoint, segmentPoint ) {
+    const newPoints = [];
 
-    var segment = this.o.buddy;
+    const _firstPoint = segmentPoint || this.o.centerPosition;
+    const _secondPoint = panelPoint || this.o.panelPosition;
 
-    newPoints.push( this.o.centerPosition );
+    const segment = this.o.buddy;
 
-    newPoints.push( this.o.panelPosition );
+    newPoints.push( _firstPoint );
+
+    newPoints.push( _secondPoint );
 
     this.line.geometry.vertices = newPoints;
 
@@ -834,6 +840,7 @@ function The3DpanelCONSTR ( options ) {
       this.html.style.width = "";
       this.html.style.height = "";
 
+      self.setLineTouchingPoint()
       // console.log( this.html.offsetWidth+ " w and h " +this.html.offsetHeight );
 
   }
@@ -895,28 +902,54 @@ function The3DpanelCONSTR ( options ) {
     vB = 0;
   }
 
+  // This set end point of Line to just touch panel and dont go in center.
+  // TBD limit start of line to the surface of segment + rounded corners are not taken into account.
+  this.setLineTouchingPoint = function () {
+
+    const gamma = Math.atan( (this.o.width/2) / (this.o.height/2) );
+    const alpha = Math.atan( this.o.offsetX / this.o.offsetY );
+
+    var deltaOffsetY = 0 ;
+    var deltaOffsetX = 0 ;
+
+    // detecting corner of panel gamma is angle of the corner.
+    if ( gamma > Math.abs(alpha) ) {
+      deltaOffsetY = this.o.height / 2;
+      deltaOffsetX = Math.abs( Math.tan(alpha) * deltaOffsetY );
+    } else {
+      deltaOffsetX = this.o.width / 2;
+      deltaOffsetY =  Math.abs( Math.tan(Math.PI/2 - alpha) * deltaOffsetX );
+    }
+
+    // I want to decreas offset everytime.
+    if ( this.o.offsetX > 0 )  { deltaOffsetX *= -1}
+    if ( this.o.offsetY > 0 )  { deltaOffsetY *= -1}
+
+    // Getting the edge point from helix functing
+    var edgePoint = this.o.buddy.helixFunction(
+      Helix.getTFromZ(this.o.centerPosition.z),
+      true,
+      this.o.offsetX + deltaOffsetX,
+      this.o.offsetY + deltaOffsetY);
+
+    self._updateLineVertices( edgePoint );
+
+    // console.log(this.o.offsetX, deltaOffsetX, this.o.offsetY, deltaOffsetY);
+    // console.log(alpha/Math.PI*180,delta/Math.PI*180, gamma/Math.PI*180);
+
+  }
+
   this.updateCenterPosition = function ( newPosition ) {
 
     this.o.centerPosition = newPosition;
     this.o.panelPosition = self._getPanelPosition();
-    this.plane.position.copy(this.o.panelPosition);
-    this.css3d.position.copy(this.o.panelPosition);
+    this.plane.position.copy( this.o.panelPosition );
+    this.css3d.position.copy( this.o.panelPosition );
     self.updateAccessories();
-    // self._updateLineVertices();
-    // self.__updateRingPositionAndRotation();
 
   }
 
-  // this.setNewOffsets = function ( xOff, yOff ) {
-  //
-  //   this.o.offsetX = xOff;
-  //   this.o.offsetY = yOff;
-  //
-  //   self.updatePosition();
-  //
-  // }
-
-
+  // Rotatates panel only in Y
   this.setRotationY = function ( angle ) {
 
     this.plane.rotation.y = angle;
@@ -976,6 +1009,7 @@ function The3DpanelCONSTR ( options ) {
       this.ring.visible = true;
 
       this.html.style.visibility = "visible";
+
     } else {
 
       infoLog(" Making panel NOT visible.")
@@ -989,7 +1023,6 @@ function The3DpanelCONSTR ( options ) {
       this.html.style.visibility = "hidden";
 
     }
-
   }
 
   // create 3D panel during init.
@@ -1074,7 +1107,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
         var newZ = onObject.getCenterFromSurface(mousePointer).z;
         var oldZ = panel.o.centerPosition.z;
 
-        // If panel position did not changed significantly, dont do anythin.
+        // If panel position did not changed significantly, dont do anything.
         if ( Math.floor(newZ) == Math.floor(oldZ) ) {
           // infoLog("Skipping the update");
           return panel;
@@ -1099,7 +1132,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
         return panel;
       }
 
-    // console.log("PANEL NOT FOUND CREATING NEW");
+    // PANEL NOT FOUND CREATING NEW
 
     var newOpts = new objectOptionsCONST ();
 

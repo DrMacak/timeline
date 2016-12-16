@@ -34,6 +34,7 @@ function onMouseMove( event ) {
 			// controls.enabled = false;
 			// console.log(planeIntersection);
 			mouse.draggedPanel.setOffsetToCursor( planeIntersection );
+			mouse.draggedPanel.setLineTouchingPoint();
 
 		// }
 
