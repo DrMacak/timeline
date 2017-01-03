@@ -68,7 +68,7 @@ function createCssRenderer() {
 ///////////////////////////////////////////////////////////////////
 
 function createGlRenderer() {
- var glRenderer = new THREE.WebGLRenderer({ alpha:true, antialias: true });
+ var glRenderer = new THREE.WebGLRenderer({ alpha:true }); // , antialias: true
  glRenderer.setSize(window.innerWidth, window.innerHeight);
  glRenderer.domElement.style.position = 'absolute';
  glRenderer.domElement.style.zIndex = 1;

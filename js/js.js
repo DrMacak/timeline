@@ -5,7 +5,7 @@ var camera, scene, renderer,
 
 var raycaster, currentIntersected, donutMesh;
 var INTERSECTED;
-var mouse;
+var mouse = new THREE.Vector2();
 
 // DEBUG
 var cssObject, plane;
@@ -202,12 +202,14 @@ function SegmentCONSTR ( options ) {
   this.getAngle = function( point ) {
 
     var polarity = 1;
-    if (point.y < 0) { polarity = -1 }
+    var offset = 0;
+    if (point.y < 0) { polarity = -1; offset = Math.PI; }
 
-    var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.helix.radius;
-    // console.log(self.helixFunction(this.o.helix.getTFromZ(point.z), true));
-    // var Y = self.helixFunction(this.o.helix.getTFromZ(point.z), true).y/this.radius;
-    var angle = Math.acos(X*polarity);
+    // var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.helix.radius;
+
+    // var angle = Math.acos(X*polarity) + offset;
+
+    var angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
 
     return angle;
   }
@@ -676,8 +678,17 @@ function The3DpanelCONSTR ( options ) {
 
     var segment = this.o.buddy;
 
+    const ringThickness = 5;
+    const radialSegments = 20;
+    const tubularSegments = 100;
+
     var material = new THREE.MeshBasicMaterial( { color: 0x000000 });
-    var geometry = new THREE.TorusGeometry(segment.o.thickness, 10, 20, 100);
+
+    var geometry = new THREE.TorusGeometry(segment.o.thickness,
+                              ringThickness,
+                              radialSegments,
+                              tubularSegments);
+
     this.ring = new THREE.Mesh( geometry, material );
 
     self._updateRingPositionAndRotation();
@@ -958,6 +969,13 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
+  this.switchRotationY =  function ( ) {
+
+    const newAngle =  this.o.rotation.y + Math.PI;
+    self.setRotationY( newAngle );
+
+  }
+
   this.setRotation = function ( rotation ) {
 
     this.o.rotation = rotation;
@@ -1148,9 +1166,14 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
     if ( action.indexOf('leftClick') >= 0 ) {
 
       // panel.setRotationY(  );
-
+      // var yPol = 1;
+      //
+      //   if (camera.rotation.y < 0) {
+      //     yPol = -1;
+      //   }
 
       newOpts.rotation = new THREE.Vector3( Math.PI/2, onObject.getAngle( centerPoint ), 0);
+      console.log(newOpts.rotation);
       // controls.target.set( newOpts.centerPosition );
 
     } else {
@@ -1189,15 +1212,26 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
   }
 
 
-  // this.createPointer = function (options) {
-  //
-  //   var newPointer = new this.pointerConstructor( options );
-  //
-  //   this.scene3d.add( newPointer.Mesh );
-  //
-  //   this.objects.push( newPointer );
-  //
-  // }
+}
+
+// Have to start using prototyping
+
+// Removing last panel
+ObjectsListCONSTR.prototype.removeLastPanel = function () {
+  this.removeObject(this.objects[this.objects.length-1]);
+}
+
+// detects if media panel should be rotated in order to face toward camera
+ObjectsListCONSTR.prototype.faceTowardCamera = function ( ) {
+
+  for (var i = 0; i <  this.objects.length; i++) {
+
+    if (this.obejcts[i].o.template == "leftClickSegment") {
+      var panel = this.obejcts[i];
+      var cameraAngleY = 0;
+    }
+
+  }
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -1216,13 +1250,13 @@ function init( birthDate ){
   raycaster.far = viewDistance;
 
 // PROTO
-  mouse = new THREE.Vector2();
+  // mouse = new THREE.Vector2();
 
   mouse.dragging = false;
 
   // Should be remove as it is not needed anymore?
-  mouse.leftCliked = 0;
-  mouse.rightCliked = 0;
+  // mouse.leftCliked = 0;
+  // mouse.rightCliked = 0;
 
   renderer = createGlRenderer();
   cssRenderer = createCssRenderer();
@@ -1386,25 +1420,36 @@ function init( birthDate ){
   document.addEventListener( 'mouseup', function(e) {
     if (e.which == 1) {
       console.log("leftUP");
-      mouse.leftCliked = false;
+      // mouse.leftCliked = false;
 
       mouse.dragging = false;
       controls.enabled = true;
+
       if (mouse.draggedPanel) {
         mouse.draggedPanel.flushOffsetBuffer();
       }
     } else if (e.which == 3) {
 
-      mouse.rightCliked = false;
+      // mouse.rightCliked = false;
 
     }
   }, false );
+
+  document.addEventListener( 'keydown', function (e) {
+    var key = e.which || e.keyCode;
+    if (key === 27) {
+      Panels.removeLastPanel();
+      // var lastPan = Panels.objects[Panels.objects.length-1];
+      // lastPan.switchRotationY();
+    }
+  }, false );
+
 }
 
 }
 
 ///////////////////////////////////////////////////////////////////
-// Seetings Panel Wrappers
+// Panel Wrappers
 //
 ///////////////////////////////////////////////////////////////////
 
@@ -1451,13 +1496,13 @@ function startNewSegmentWRP ( T1, PanelUuid ) {
 }
 
 
-function chanegePositionWRP ( uuid ) {
-  console.log(mouse);
-  mouse.dragging = true;
-    // while (mouse.leftCliked) {
-    //   console.log("pini");
-    // }
-}
+// function chanegePositionWRP ( uuid ) {
+//   console.log(mouse);
+//   mouse.dragging = true;
+//     // while (mouse.leftCliked) {
+//     //   console.log("pini");
+//     // }
+// }
 
 // function changeSegmentWRP (segInfo) {
 //   changeSegmentPars (segInfo);
@@ -1478,6 +1523,7 @@ function chanegePositionWRP ( uuid ) {
 /////////////////////// MOUSE CLICK ////////////////////////////////
 
 function mouseDown ( e ) {
+  console.log(camera.rotation);
 
   var action = "";
 
@@ -1486,12 +1532,12 @@ function mouseDown ( e ) {
   if (e.which == 1) {
 
     action = "leftClick";
-    mouse.leftCliked = true;
+    // mouse.leftCliked = true;
 
   } else if (e.which == 3) {
 
     action = "rightClick";
-    mouse.rightCliked = true;
+    // mouse.rightCliked = true;
 
   }
 
@@ -1532,11 +1578,11 @@ function checkDragging ( action, panel ) {
     var elementMouseIsOver = document.elementFromPoint(x, y);
 
     // IF IM ON DRAGABLE ELEMENT
-    if ( elementMouseIsOver.hasAttribute("dragable")) {
+    if ( elementMouseIsOver.className.indexOf("draggable") > -1 ) {
 
       controls.enabled = false;
       mouse.dragging = true;
-      console.log("drg");
+      // console.log("drg");
       mouse.draggedPanel = panel.dad;
     }
   }
