@@ -18,7 +18,7 @@ function onMouseMove( event ) {
 	mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1; //1.009
 	mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1; //1.015
 
-	console.log(mouse.dragging);
+	// console.log(mouse.dragging);
 
 	if ( mouse.dragging ) {
 

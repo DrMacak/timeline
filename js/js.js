@@ -199,20 +199,16 @@ function SegmentCONSTR ( options ) {
   );
 
   // This will give you angle to the center of helix
-  this.getAngle = function( point ) {
-
-    var polarity = 1;
-    var offset = 0;
-    if (point.y < 0) { polarity = -1; offset = Math.PI; }
-
-    // var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.helix.radius;
-
-    // var angle = Math.acos(X*polarity) + offset;
-
-    var angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
-
-    return angle;
-  }
+  // this.getAngle = function( point ) {
+  //
+  //   var polarity = 1;
+  //   var offset = 0;
+  //   if (point.y < 0) { polarity = -1; offset = Math.PI; }
+  //
+  //   var angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
+  //
+  //   return angle;
+  // }
 
   // Update geometry of segment so new options will be rendered.
   this.updateGeometry = function () {
@@ -535,6 +531,21 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
     this.scene3d.remove(segment.Mesh);
     this.scene3d.remove(segment.cap);
 
+  }
+
+  this.getAngle = function( point ) {
+
+    var polarity = 1;
+    var offset = 0;
+    if (point.y < 0) { polarity = -1; offset = Math.PI; }
+
+    // var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.helix.radius;
+
+    // var angle = Math.acos(X*polarity) + offset;
+
+    var angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
+
+    return angle;
   }
 
   // Init during instancing.
@@ -969,9 +980,14 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
-  this.switchRotationY =  function ( ) {
+  this.switchYRotation =  function ( ) {
+    var pol = 1;
 
-    const newAngle =  this.o.rotation.y + Math.PI;
+    if ( (this.o.rotation.y + Math.PI) >= 2*Math.PI ) {
+      pol = -1;
+    }
+
+    const newAngle =  this.o.rotation.y + Math.PI * pol;
     self.setRotationY( newAngle );
 
   }
@@ -1161,7 +1177,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
     newOpts.centerPosition =  centerPoint;
 
-    console.log(action.indexOf('leftClick'));
+    // console.log(action.indexOf('leftClick'));
 
     if ( action.indexOf('leftClick') >= 0 ) {
 
@@ -1172,8 +1188,8 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
       //     yPol = -1;
       //   }
 
-      newOpts.rotation = new THREE.Vector3( Math.PI/2, onObject.getAngle( centerPoint ), 0);
-      console.log(newOpts.rotation);
+      newOpts.rotation = new THREE.Vector3( Math.PI/2, Helix.getAngle( centerPoint ), 0);
+      console.log(newOpts.rotation.y);
       // controls.target.set( newOpts.centerPosition );
 
     } else {
@@ -1218,17 +1234,38 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
 // Removing last panel
 ObjectsListCONSTR.prototype.removeLastPanel = function () {
-  this.removeObject(this.objects[this.objects.length-1]);
+  if (this.objects.length > 0) {
+    this.removeObject(this.objects[this.objects.length-1]);
+  }
 }
 
-// detects if media panel should be rotated in order to face toward camera
+// detects if media panel should be mirrored in order to face toward camera
 ObjectsListCONSTR.prototype.faceTowardCamera = function ( ) {
+
+  var cameraAngleY = Helix.getAngle( camera.position );
 
   for (var i = 0; i <  this.objects.length; i++) {
 
-    if (this.obejcts[i].o.template == "leftClickSegment") {
-      var panel = this.obejcts[i];
-      var cameraAngleY = 0;
+    if (this.objects[i].o.template == "leftClickSegment") {
+
+      var panel = this.objects[i];
+      var panelRotY = panel.o.rotation.y;
+      var panelAngleY = Helix.getAngle( panel.o.panelPosition );
+
+      var diffAngle = ( Math.PI - cameraAngleY );
+
+      var correctedAngle = panelAngleY + diffAngle;
+
+      if ( correctedAngle > Math.PI && correctedAngle < Math.PI*2 || correctedAngle < 0) {
+        if ( panelRotY != panelAngleY ) {
+          panel.setRotationY(panelAngleY);
+        }
+      } else {
+        if ( Math.floor(panelRotY*100) === Math.floor(panelAngleY*100) ) {
+          panel.switchYRotation();
+        }
+      }
+
     }
 
   }
@@ -1419,7 +1456,7 @@ function init( birthDate ){
 
   document.addEventListener( 'mouseup', function(e) {
     if (e.which == 1) {
-      console.log("leftUP");
+      // console.log("leftUP");
       // mouse.leftCliked = false;
 
       mouse.dragging = false;
@@ -1440,7 +1477,7 @@ function init( birthDate ){
     if (key === 27) {
       Panels.removeLastPanel();
       // var lastPan = Panels.objects[Panels.objects.length-1];
-      // lastPan.switchRotationY();
+      // lastPan.switchYRotation();
     }
   }, false );
 
@@ -1523,7 +1560,7 @@ function startNewSegmentWRP ( T1, PanelUuid ) {
 /////////////////////// MOUSE CLICK ////////////////////////////////
 
 function mouseDown ( e ) {
-  console.log(camera.rotation);
+  console.log(Helix.getAngle(camera.position) + ": camera rotation");
 
   var action = "";
 
@@ -1596,8 +1633,8 @@ function doAction (action, onObject, mousePointer) {
   var centerPoint = segment.getCenterFromSurface(mousePointer);
 
   // DEBUG
-  console.log(onObject);
-  segment.TALK();
+  // console.log(onObject);
+  // segment.TALK();
 
   // RIGHT CLICK
   if (action.indexOf('rightClick') >= 0) {
@@ -1667,6 +1704,7 @@ function render() {
 
   var action = "mouseover";
 
+  Panels.faceTowardCamera();
 
   raycaster.setFromCamera( mouse, camera );
 
