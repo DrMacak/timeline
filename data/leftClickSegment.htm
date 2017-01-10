@@ -1,22 +1,17 @@
+<!-- FOR DEBUG When not commented is causing jitter -->
+<link rel="stylesheet" href="../css/style.css" type="text/css"/>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css"/>
 <!-- FOR DEBUG -->
-<!-- <link rel="stylesheet" href="../css/style.css" type="text/css"/>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css"/> -->
-<!-- FOR DEBUG -->
-
-
-<div class="optionsPanel">
-
-  <!-- TimeDiv should contain time where clicked -->
-  <div class="timeDiv"></div>
 
   <div id="dataDiv" class="panel panel-primary noBottomMargin">
 
-    <div dragable="true" class="panel-heading draggable">
-      Do you wish to create new panel?
+    <div class="panel-heading draggable">
+
+      Do you wish to create new panel? <label class="timeLabel smaller">12-12-1212</label>
 
       <span onclick="Err()" class="glyphicon glyphicon-remove pull-right noselect" aria-hidden="true"></span>
-    </div>
 
+    </div>
     <div class="panel-body">
 
       <!-- BUTTON START-->
@@ -52,10 +47,9 @@
 
 
     </div>
+    <span class="glyphicon glyphicon-resize-full resizer" aria-hidden="true"></span>
 
   </div>
-
-</div>
 
 
 <script>

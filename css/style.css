@@ -2,6 +2,9 @@
   width: 100%;
   height: 100%;
 }*/
+#dataDiv {
+  height: 100%;
+}
 
 .panel3D {
   /*text-align: center;*/
@@ -14,6 +17,28 @@
 
 .draggable {
   cursor: move;
+}
+
+.resizer {
+  /*float: right;*/
+    /* left: 0px; */
+  /*margin-top: -18px;
+  margin-right: 5px;*/
+
+  position: absolute !important;
+  top: initial !important;
+  bottom: 0px !important;
+  right: 0px;
+  margin: 6px;
+  cursor: col-resize;
+  text-shadow: 0px 0px 10px white;
+
+}
+
+.rotate90 {
+  -webkit-transform: rotate(90deg);
+      -ms-transform: rotate(90deg); // IE9 only
+          transform: rotate(90deg);
 }
 
 .noselect {
@@ -44,6 +69,10 @@
   font-size: 1.5em;
 }
 
+.smaller {
+  font-size: 1em;
+}
+
 .glyphicon-remove {
   cursor: pointer;
 }
@@ -52,6 +81,8 @@
   margin-left: 10px;
   cursor: pointer;
 }
+
+
 
 .optionsPanel {
   /*overflow: scroll;*/

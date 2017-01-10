@@ -21,23 +21,19 @@ function onMouseMove( event ) {
 	// console.log(mouse.dragging);
 
 	if ( mouse.dragging ) {
-
-		// var x = mouse.clientX, y = mouse.clientY,
-		// elementMouseIsOver = document.elementFromPoint(x, y);
-
-		// IF IM ON DRAGABLE ELEMENT
-		// if ( elementMouseIsOver.hasAttribute("dragable")) {
-
 			var planeIntersection = new THREE.Vector3();
-			raycaster.ray.intersectPlane( mouse.draggedPanel.mathPlane, planeIntersection );
-			// mouse.dragging = true;
-			// controls.enabled = false;
-			// console.log(planeIntersection);
-			mouse.draggedPanel.setOffsetToCursor( planeIntersection );
-			mouse.draggedPanel.setLineTouchingPoint();
+			raycaster.ray.intersectPlane( mouse.activePanel.mathPlane, planeIntersection );
+			mouse.activePanel.setOffsetToCursor( planeIntersection );
+			mouse.activePanel.setLineTouchingPoint();
+	}
 
-		// }
+	if ( mouse.resizing ) {
+			var planeIntersection = new THREE.Vector3();
+			raycaster.ray.intersectPlane( mouse.activePanel.mathPlane, planeIntersection );
 
+			mouse.activePanel.resizeToNewCorner( planeIntersection );
+
+			mouse.activePanel.setLineTouchingPoint();
 	}
 
 	mouse.diffX = mouse.clientX - event.clientX;

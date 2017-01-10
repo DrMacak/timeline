@@ -741,11 +741,11 @@ function The3DpanelCONSTR ( options ) {
     }
 
     // .glyphicon-fullscreen
-    if (div.getElementsByClassName('glyphicon-fullscreen')[0] !== undefined ) {
-      infoLog("glyphicon-fullscreen found");
-      var positionCross = div.getElementsByClassName('glyphicon-fullscreen')[0];
-      positionCross.setAttribute("onclick", "chanegePositionWRP('" + this.o.uuid + "')");
-    }
+    // if (div.getElementsByClassName('glyphicon-fullscreen')[0] !== undefined ) {
+    //   infoLog("glyphicon-fullscreen found");
+    //   var positionCross = div.getElementsByClassName('glyphicon-fullscreen')[0];
+    //   positionCross.setAttribute("onclick", "chanegePositionWRP('" + this.o.uuid + "')");
+    // }
 
     //  Time label
     if (div.getElementsByClassName('timeLabel')[0] !== undefined ) {
@@ -867,7 +867,7 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
-  // adds offset
+  // adds differential offset
   this.moveOffset =  function ( offsetDiffX, offsetDiffY ) {
 
     this.o.offsetX += offsetDiffX;
@@ -879,49 +879,56 @@ function The3DpanelCONSTR ( options ) {
     // update position and line
   }
 
-  var vA = 0;
-  var vB = 0;
-
+  // Dragging function thats setting offset of panel so it the position of panel is same in regard to cursor position.
   this.setOffsetToCursor = function ( point ) {
 
-    vA = point;
+    this._vectorBuffer.vA = point;
 
-    var dxOffset = 0;
-    var dyOffset = 0;
-
-    if ( vB != 0 ) {
-      getOffsets( vA, vB );
-      self.moveOffset( dxOffset, dyOffset );
+    // if vB = 0 its first iteration so we need one more.
+    if ( this._vectorBuffer.vB != 0 ) {
+      var dOffsets = self.getDeltaOffsets( this._vectorBuffer.vA, this._vectorBuffer.vB );
+      self.moveOffset( dOffsets.dX, dOffsets.dY );
 
       // Shift vector buffer
-      vB = vA;
+      this._vectorBuffer.push(this._vectorBuffer.vA);
 
       return;
     }
 
     // Shift vector buffer
-    vB = vA;
-
-    function getOffsets( A, B ) {
-
-      var vector = new THREE.Vector3();
-      vector.subVectors( A, B );
-      var vectorLen = vector.length();
-
-      dyOffset = A.z - B.z;
-
-      var pol = 1;
-      if ( Math.abs( A.x ) < Math.abs( B.x ) ) {  pol = -1; }
-
-      dxOffset = Math.sqrt( Math.pow( vectorLen, 2) - Math.pow( dyOffset, 2) ) * pol;
-    }
+    this._vectorBuffer.push(this._vectorBuffer.vA);
 
     return;
   }
 
-  this.flushOffsetBuffer = function () {
-    vA = 0;
-    vB = 0;
+  // Simple buffer for storing two vectors3
+  this._vectorBuffer = {
+    vA : 0,
+    vB : 0,
+    clear : function () {
+      this.vA = 0;
+      this.vB = 0;
+    },
+    push : function ( next ) {
+      this.vB = this.vA;
+      this.vA = next;
+    }
+  }
+
+  // Gets two points and return X and Y delta offsets.
+  this.getDeltaOffsets = function ( A, B ) {
+
+    const vectorLen = A.distanceTo(B);
+
+    const dYOffset = A.z - B.z;
+
+    var pol = 1;
+    if ( Math.abs( A.x ) < Math.abs( B.x ) ) {  pol = -1; }
+
+    const dXOffset = Math.sqrt( Math.pow( vectorLen, 2) - Math.pow( dYOffset, 2) ) * pol;
+
+    return { dX : dXOffset, dY : dYOffset };
+
   }
 
   // This set end point of Line to just touch panel and dont go in center.
@@ -1061,6 +1068,39 @@ function The3DpanelCONSTR ( options ) {
 
   // create 3D panel during init.
   this.create3dPanel();
+}
+
+
+The3DpanelCONSTR.prototype.resizeToNewCorner = function ( point ) {
+
+  // We have to get point of old corner, that is center minus half of W and H.
+  this._vectorBuffer.vA = point;
+
+  // if vB = 0 its first iteration so we need one more.
+  if ( this._vectorBuffer.vB != 0 ) {
+    var dOffsets = this.getDeltaOffsets( this._vectorBuffer.vA, this._vectorBuffer.vB );
+
+    const newWidth = this.o.width - dOffsets.dX;
+    const newHeight = this.o.height - dOffsets.dY;
+
+    // Set new size
+    this.setSize ( newWidth, newHeight );
+
+    // Move offset by half of delta.
+    this.moveOffset( dOffsets.dX/2, dOffsets.dY/2 );
+
+    // Shift vector buffer
+    this._vectorBuffer.push(this._vectorBuffer.vA);
+
+    return;
+  }
+
+  // Shift vector buffer
+  this._vectorBuffer.push(this._vectorBuffer.vA);
+
+  return;
+
+
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -1258,10 +1298,10 @@ ObjectsListCONSTR.prototype.faceTowardCamera = function ( ) {
 
       if ( correctedAngle > Math.PI && correctedAngle < Math.PI*2 || correctedAngle < 0) {
         if ( panelRotY != panelAngleY ) {
-          panel.setRotationY(panelAngleY);
+          panel.setRotationY( panelAngleY );
         }
       } else {
-        if ( Math.floor(panelRotY*100) === Math.floor(panelAngleY*100) ) {
+        if ( Math.floor(panelRotY * 100 ) === Math.floor( panelAngleY * 100 ) ) {
           panel.switchYRotation();
         }
       }
@@ -1290,6 +1330,7 @@ function init( birthDate ){
   // mouse = new THREE.Vector2();
 
   mouse.dragging = false;
+  mouse.resizing = false;
 
   // Should be remove as it is not needed anymore?
   // mouse.leftCliked = 0;
@@ -1460,10 +1501,13 @@ function init( birthDate ){
       // mouse.leftCliked = false;
 
       mouse.dragging = false;
+      mouse.resizing = false;
+
       controls.enabled = true;
 
-      if (mouse.draggedPanel) {
-        mouse.draggedPanel.flushOffsetBuffer();
+      if (mouse.activePanel) {
+        // mouse.activePanel.flushOffsetBuffer();
+        mouse.activePanel._vectorBuffer.clear();
       }
     } else if (e.which == 3) {
 
@@ -1620,7 +1664,16 @@ function checkDragging ( action, panel ) {
       controls.enabled = false;
       mouse.dragging = true;
       // console.log("drg");
-      mouse.draggedPanel = panel.dad;
+      mouse.activePanel = panel.dad;
+    }
+
+    // IF IM ON resizing ELEMENT
+    if ( elementMouseIsOver.className.indexOf("resizer") > -1 ) {
+
+      controls.enabled = false;
+      mouse.resizing = true;
+      // console.log("drg");
+      mouse.activePanel = panel.dad;
     }
   }
 
