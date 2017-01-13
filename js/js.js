@@ -395,6 +395,50 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
     return newSegment;
   }
 
+  this.genInterupts = function ( period ) {
+    var stops = [];
+
+    const now = new Date();
+    const birth = this.birthDate;
+    const startMonday = 1;
+    // const weekOffset = birth.getDay
+
+    stops.push(birth);
+    stops.push(birth);
+
+    var stop = new Date ( birth.getFullYear(),
+                          birth.getMonth(),
+                          birth.getDate() - birth.getDay() + startMonday );
+
+    while ( stops[stops.length - 1] < now ) {
+
+      if ( period == "years" ) {
+          stop.setFullYear( stop.getFullYear() + 1 );
+      } else if ( period == "months" ) {
+          stop.setMonth( stop.getMonth() + 1 );
+      } else if ( period == "weeks" ) {
+          stop.setHours( stop.getHours() + 24 * 7 );
+      } else if ( period == "days" ) {
+          stop.setHours( stop.getHours() + 24 );
+      }
+
+      // if ( stop > birth && stops[stops.length-1] < birth ) {
+      //   stops.push( birth );
+      // }
+
+      stops.push( new Date( stop ) );
+    }
+
+    // adds date of now.
+    stops.push(now);
+
+    // adds end date
+      stops.push(this.endDate);
+
+    console.log(stops);
+    return stops;
+  }
+
   // Generating Default list of segments
   this.genDefaultSegments = function () {
     var interuptions = [];
@@ -410,6 +454,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
       interuptions.push(self.getTFromTime(newYear));
     }
 
+    // adds date of now.
     interuptions.push(self.getTFromTime(now));
 
     // var lastDay = new Date(now.getFullYear(), 11, 31, 23, 59);
@@ -550,6 +595,8 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
   // Init during instancing.
   this.init();
+
+  this.genInterupts("weeks");
 }
 
 ///////////////////////////////////////////////////////////////////
