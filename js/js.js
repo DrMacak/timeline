@@ -29,9 +29,9 @@ var Panels;
 //
 ///////////////////////////////////////////////////////////////////
 
-function SegmentCONSTR ( options ) {
+function Segment ( options ) {
 
-  var self = this;
+  this.self = this;
 
   this.o = options;
 
@@ -40,46 +40,61 @@ function SegmentCONSTR ( options ) {
   this.cap = undefined;
 
   // Some basic geometry settings
-  var polygons = 1000;
-  var radialPolygons = 14;
-  var closed = false;
+  this._polygons = 1000;
+  this._radialPolygons = 30;
+  this._closed = false;
 
-  // Function to generate helix points t is from 0 to 1. When pure true there is not T stretching.
-  this.helixFunction = function (t, pure, radiusOffset, zOffset) {
 
-    var Tl = self._tStrech( t );
 
-    if ( pure ) { Tl = t }
+  // Call it during init
+  // this.create3Dsegment();
 
-    var radius = radiusOffset + this.o.helix.radius || this.o.helix.radius;
-    var zOffLoc = zOffset || 0;
+}
 
-    var Tpi = Tl*(Math.PI*2)*this.o.helix.rotations;
+Segment.prototype = THREE.Curve.prototype;
 
-    var tx = Math.cos( Tpi ) * radius,
-        ty = Math.sin( Tpi ) * radius,
-        tz = this.o.helix.height * Tl + zOffLoc;
+Segment.prototype.constructor = Segment;
 
-    return new THREE.Vector3( tx, ty, tz );
-  }
+// Function to generate helix points t is from 0 to 1. When pure true there is not T stretching.
+Segment.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
+  debugger;
 
-  // This method streatch input t (0 to 1) to fit the segment limits.
-  this._tStrech = function (t) {
-    var sT = t * (this.o.T2-this.o.T1) + this.o.T1;
-    return sT;
-  }
+  var Tl = this._tStrech( t );
+
+  if ( pure ) { Tl = t }
+
+  var radius = radiusOffset + this.o.helix.radius || this.o.helix.radius;
+  var _zOffset = zOffset || 0;
+
+  var Tpi = Tl*(Math.PI*2)*this.o.helix.rotations;
+
+  var tx = Math.cos( Tpi ) * radius,
+      ty = Math.sin( Tpi ) * radius,
+      tz = this.o.helix.height * Tl + _zOffset;
+
+  return new THREE.Vector3( tx, ty, tz );
+}
+
+// This method streatch input t (0 to 1) to fit the segment limits.
+Segment.prototype._tStrech = function ( t ) {
+  debugger;
+
+  var sT = t * ( this.o.T2 - this.o.T1 ) + this.o.T1;
+  return sT;
+}
+
 
   // TBD This should be possible to make smarter???
-  this.getCenterFromSurface = function(mousePoint, radiusOffset, zOffset) {
+  Segment.prototype.getCenterFromSurface = function(mousePoint, radiusOffset, zOffset) {
 
-    var offsetR =  radiusOffset || 0;
-    var offsetZ =  zOffset || 0;
+    var _radiusOffset =  radiusOffset || 0;
+    var _zOffset =  zOffset || 0;
 
     // get some inacurate center point based on simple Z coordinates
     var T = this.o.helix.getTFromZ(mousePoint.z);
 
     // Get distance of surface point and this calculated inacurate point
-    var distanceA = self.getPointsDist(mousePoint, self.helixFunction(T, true));
+    var distanceA = this.getPointsDist(mousePoint, this.getPoint(T, true));
     var distanceB = distanceA;
 
     // Delta T is the step for finding the minimun distance
@@ -87,7 +102,7 @@ function SegmentCONSTR ( options ) {
     var direction = 1;
 
     // Am I under the center or above? If above we have to go down
-    if (distanceA < self.getPointsDist(mousePoint, self.helixFunction(T+deltaT, true))) {
+    if (distanceA < this.getPointsDist(mousePoint, this.getPoint(T+deltaT, true))) {
       direction = -1;
     }
 
@@ -95,27 +110,27 @@ function SegmentCONSTR ( options ) {
     do {
       distanceA = distanceB;
       T = T + deltaT*direction;
-      distanceB = self.getPointsDist(mousePoint, self.helixFunction(T, true))
+      distanceB = this.getPointsDist(mousePoint, this.getPoint(T, true))
     }
     while (distanceA > distanceB)
 
     // I will substract the last step to get the minimal T
-    return self.helixFunction(T - deltaT*direction, true, offsetR, offsetZ);
+    return this.getPoint(T - deltaT*direction, true, _radiusOffset, _zOffset);
   }
 
   // There is function for this in THREE js so obsolete?
-  this.getPointsDist = function (pA, pB) {
+  Segment.prototype.getPointsDist = function (pA, pB) {
     return (Math.sqrt(Math.pow((pB.x-pA.x),2)+Math.pow((pB.y-pA.y),2)+Math.pow((pB.z-pA.z),2)));
   }
 
   // Is reducing polygons based on ration of segment to whole helix
-  this._getReducedPolygons = function( polygons ) {
+  Segment.prototype._getReducedPolygons = function( polygons ) {
 
-    var threshHold = 100;
+    const threshHold = 10;
 
-    var reducedPolygons =  Math.floor(((this.o.T2 - this.o.T1) / 1) * polygons);
+    const reducedPolygons =  Math.floor(((this.o.T2 - this.o.T1) / 1) * polygons );
 
-    if (reducedPolygons > threshHold) {
+    if ( reducedPolygons > threshHold ) {
       return reducedPolygons;
     } else {
       return threshHold;
@@ -123,10 +138,9 @@ function SegmentCONSTR ( options ) {
 
   }
 
-  this._putCap = function ( T ) {
+  Segment.prototype._putCap = function ( T ) {
 
-
-    var material = new THREE.MeshBasicMaterial( {
+    const material = new THREE.MeshBasicMaterial( {
       color: this.o.color,
       opacity: this.o.opacity,
       transparent: true
@@ -134,13 +148,13 @@ function SegmentCONSTR ( options ) {
 
     material.side = THREE.DoubleSide;
 
-    var geometry = new THREE.CircleGeometry(this.o.thickness, radialPolygons);
+    const geometry = new THREE.CircleGeometry(this.o.thickness, this._radialPolygons);
 
     var capMesh =  new THREE.Mesh(geometry, material)
-    capMesh.position.copy( self.helixFunction( T, true ) );
+    capMesh.position.copy( this.getPoint( T, true ) );
     capMesh.visible = this.o.visible;
 
-    var helixVector = self.helixFunction( T + 0.0001, true );
+    const helixVector = this.getPoint( T + 0.0001, true );
 
     capMesh.lookAt( helixVector );
 
@@ -151,21 +165,21 @@ function SegmentCONSTR ( options ) {
 
   }
 
-  this.create3Dsegment = function () {
+  Segment.prototype.create3Dsegment = function () {
 
-    var material = new THREE.MeshBasicMaterial( {
+    const material = new THREE.MeshBasicMaterial( {
       color: this.o.color,
       opacity: this.o.opacity,
       transparent: true
     } );
 
     material.side = THREE.DoubleSide;
-
-    var geometry = new THREE.TubeGeometry(new self._helixCurve(),
-      self._getReducedPolygons( polygons ),
+    debugger;
+    const geometry = new THREE.TubeGeometry(new this.constructor( this.o ),
+      this._getReducedPolygons( this._polygons ),
       this.o.thickness,
-      radialPolygons,
-      closed);
+      this._radialPolygons,
+      this._closed);
 
     var tubeMesh =  new THREE.Mesh ( geometry, material);
 
@@ -180,60 +194,41 @@ function SegmentCONSTR ( options ) {
 
     // Place caps on segment
     if ( this.o.topCap ) {
-      self._putCap( this.o.T2 );
+      this._putCap( this.o.T2 );
     }
 
     if ( this.o.bottomCap ) {
-      self._putCap( this.o.T1 );
+      this._putCap( this.o.T1 );
     }
 
     // return this.Mesh;
   }
 
-  // Generate THREE curve based on helix function
-  this._helixCurve = THREE.Curve.create(
-    function() {},
-    function( t ) {
-      return self.helixFunction( t );
-    }
-  );
-
-  // This will give you angle to the center of helix
-  // this.getAngle = function( point ) {
-  //
-  //   var polarity = 1;
-  //   var offset = 0;
-  //   if (point.y < 0) { polarity = -1; offset = Math.PI; }
-  //
-  //   var angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
-  //
-  //   return angle;
-  // }
-
   // Update geometry of segment so new options will be rendered.
-  this.updateGeometry = function () {
+  Segment.prototype.updateGeometry = function () {
 
-    var object = new THREE.TubeGeometry(new self._helixCurve(),
-    self._getReducedPolygons( polygons ),
+    const newGeometry = new THREE.TubeGeometry(new this.constructor( this.o ),
+    this._getReducedPolygons( this._polygons ),
     this.o.thickness,
-    radialPolygons,
-    closed);
+    this._radialPolygons,
+    this._closed);
 
-    this.Mesh.geometry = object;
+    this.Mesh.geometry = newGeometry;
   }
 
-  this.visible = function ( visible ) {
+
+  Segment.prototype.visible = function ( visible ) {
 
     if ( visible ) {
 
-      infoLog(" Making segment visible.")
+      // infoLog(" Making segment visible.")
 
       this.o.visible = true;
       this.Mesh.visible = true;
 
     } else {
 
-      infoLog(" Making segment NOT visible.")
+      // infoLog(" Making segment NOT visible.")
 
       this.o.visible = false;
       this.Mesh.visible = false;
@@ -243,13 +238,11 @@ function SegmentCONSTR ( options ) {
   }
 
   // Who is that???
-  this.TALK = function() {
+  Segment.prototype.TALK = function() {
     console.log("This is segment '"+ this.o.uuid +"' starts at: "+ this.o.T1 +" and ends at: "+ this.o.T2);
   }
 
-  // Call it during init
-  this.create3Dsegment();
-}
+
 
 ///////////////////////////////////////////////////////////////////
 // MIGHTY HELIX CONSTRUCTOR
@@ -310,7 +303,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
   // Initiliazing function with help of birth date.
   this.init = function() {
-    var now = new Date();
+    const now = new Date();
     this.startDate = new Date("01 01 " + this.birthDate.getFullYear());
     this.endDate = new Date("12 31 " + now.getFullYear());
     this.height = (this.endDate - this.startDate) / heightReduce;
@@ -352,7 +345,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
   this.getTFromTime = function ( time ) {
 
-    var T = (time - this.startDate)  / (this.endDate - this.startDate);
+    const T = (time - this.startDate)  / (this.endDate - this.startDate);
 
     return T;
   }
@@ -364,10 +357,11 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
   }
 
   this.getNiceTimeFromZ = function ( z ) {
+
     var time = new Date();
-    time.setTime( self.getTimeFromPoint({z}) );
-    // console.log(time);
+    time.setTime( self.getTimeFromPoint( { z } ) );
     var niceTime =  time.getDate() + "-" + (parseInt(time.getMonth())+1) + "-" +time.getFullYear();
+
     return niceTime;
   }
 
@@ -384,33 +378,43 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
   this.addSegmentToScene = function ( options ) {
 
     options.helix = this;
+    debugger;
     var newSegment = new self.segmentConstructor( options );
 
-    this.scene3d.add(newSegment.Mesh);
+    newSegment.create3Dsegment();
+
+    this.scene3d.add( newSegment.Mesh );
 
     if ( newSegment.cap !== undefined ) {
-      this.scene3d.add(newSegment.cap);
+      this.scene3d.add( newSegment.cap );
     }
 
     return newSegment;
   }
 
-  this.genInterupts = function ( period ) {
+  // creates interupion times that can be used for segent generation.
+  this.genInterupts = function ( period, start, end ) {
+
     var stops = [];
 
-    const now = new Date();
-    const birth = this.birthDate;
+    const _start = start || this.birthDate;
+    const _end =  end || new Date();
+
+    // 0 for week start on sunday
     const startMonday = 1;
-    // const weekOffset = birth.getDay
 
-    stops.push(birth);
-    stops.push(birth);
+    stops.push(_start);
 
-    var stop = new Date ( birth.getFullYear(),
-                          birth.getMonth(),
-                          birth.getDate() - birth.getDay() + startMonday );
+    // this works for weeks and days, it gets to the begining of week
+    var stop = new Date ( _start.getFullYear(),
+                          _start.getMonth(),
+                          _start.getDate() - _start.getDay() + startMonday );
 
-    while ( stops[stops.length - 1] < now ) {
+    if ( period == "years" || period == "months" ) {
+      stop = new Date ( _start.getFullYear(), 0 );
+    }
+
+    while ( stop < _end ) {
 
       if ( period == "years" ) {
           stop.setFullYear( stop.getFullYear() + 1 );
@@ -422,99 +426,71 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
           stop.setHours( stop.getHours() + 24 );
       }
 
-      // if ( stop > birth && stops[stops.length-1] < birth ) {
-      //   stops.push( birth );
-      // }
-
-      stops.push( new Date( stop ) );
+      // I want stuff between start and now only.
+      if ( stop > _start && stop < _end ) {
+        stops.push( new Date( stop ) );
+      }
     }
 
     // adds date of now.
-    stops.push(now);
+    stops.push(_end);
 
-    // adds end date
-      stops.push(this.endDate);
-
-    console.log(stops);
     return stops;
   }
 
   // Generating Default list of segments
   this.genDefaultSegments = function () {
-    var interuptions = [];
-
-    var now = new Date();
-    var years = this.rotations;
-
-    interuptions.push(self.getTFromTime(this.startDate));
-    interuptions.push(self.getTFromTime(this.birthDate));
-
-    for (var i=1; i < years; i++) {
-      var newYear = new Date(this.birthDate.getFullYear()+i, 0, 1);
-      interuptions.push(self.getTFromTime(newYear));
-    }
-
-    // adds date of now.
-    interuptions.push(self.getTFromTime(now));
-
-    // var lastDay = new Date(now.getFullYear(), 11, 31, 23, 59);
-    interuptions.push(self.getTFromTime(this.endDate));
 
     // After generating time interuptions we can create list of segment objects with parameters
+    const interuptions = self.genInterupts("years");
+
     var segmentsList = [];
 
     for (var i = 0; i < interuptions.length - 1; i++) {
-
+      console.log(i);
       var newOpts = new segmentOptionsCONSTR();
       // newOpts.birthDate = bDate;
-      newOpts.T1 = interuptions[i];
-      newOpts.T2 = interuptions[i+1];
+      newOpts.T1 = self.getTFromTime( interuptions[i] );
+      newOpts.T2 = self.getTFromTime( interuptions[i+1] );
       newOpts.click = "Segment #"+i;
       newOpts.color = Math.random() * 0xffffff;
 
-      if ( i == 1 ) {
+      if ( i == 0 ) {
         newOpts.bottomCap = true;
       }
 
-      if ( i == interuptions.length - 3 ) {
+      if ( i == interuptions.length - 2 ) {
         newOpts.topCap = true;
       }
 
-
-
-      if ( i + 2 == interuptions.length || i == 0 ) {
-          newOpts.visible = false;
-      }
-
-
-      var newSegment = self.addSegmentToScene( newOpts );
-      this.segments.push(newSegment);
+      const newSegment = self.addSegmentToScene( newOpts );
+      this.segments.push( newSegment );
     }
 
   }
 
   // creates segments from options object in list from DB
-  this.genSegmentsFromOptList =  function (optionsList) {
-  }
+  // this.genSegmentsFromOptList =  function (optionsList) {
+  // }
 
-  // push segment from segmentBuffer**
+  // push segment from segmentBuffer
   this.pushSegment = function ( ) {
 
     // number of segment in seglist in which pushed segment starts
     var startSeg = 0;
 
     for (var i=0; i < this.segments.length; i++){
-      if (this.segmentBuffer.T1 > this.segments[i].o.T1) {startSeg = i;}
+      if (this.segmentBuffer.T1 > this.segments[i].o.T1) { startSeg = i; }
     }
 
     // number of segment in seglist in which pushed segment ends
     var endSeg = 0;
 
     for (var i=0; i < this.segments.length; i++){
-      if (this.segmentBuffer.T2 < this.segments[i].o.T2) {endSeg = i; break;}
+      if (this.segmentBuffer.T2 < this.segments[i].o.T2) { endSeg = i; break; }
     }
 
-    console.log(startSeg, endSeg);
+    // console.log(startSeg, endSeg);
     var startSegment = this.segments[startSeg];
     var endSegment = this.segments[endSeg];
 
@@ -544,6 +520,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
       for (var i=0; i < removedSegments.length; i++){
         self.removeSegment(removedSegments[i]);
       }
+
     } else if (endSeg == startSeg) {
       console.log(" Pushed segment is in one segment");
 
@@ -567,7 +544,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
   // remove segment from segmentsG and scene
   this.removeSegment = function ( segment ){
 
-    var index = this.segments.indexOf(segment);
+    const index = this.segments.indexOf(segment);
 
     if (index > 0) {
       this.segments.splice(index,1);
@@ -582,21 +559,25 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
     var polarity = 1;
     var offset = 0;
-    if (point.y < 0) { polarity = -1; offset = Math.PI; }
 
-    // var X = self.helixFunction(this.o.helix.getTFromZ(point.z), true).x / this.o.helix.radius;
+    if (point.y < 0) {
+      polarity = -1;
+      offset = Math.PI;
+    }
+
+    // var X = self.getPoint(this.o.helix.getTFromZ(point.z), true).x / this.o.helix.radius;
 
     // var angle = Math.acos(X*polarity) + offset;
 
-    var angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
+    const angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
 
     return angle;
   }
 
+    // console.log(this.genInterupts("days"));
   // Init during instancing.
   this.init();
 
-  this.genInterupts("weeks");
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -650,14 +631,14 @@ function The3DpanelCONSTR ( options ) {
   // Makes 3D plane with 0 opacity as mask for CSS3D
   this._createPlane = function ( ) {
 
-    var material = new THREE.MeshBasicMaterial({
-     color: 0x000000,
-     opacity: 0.0,
-     side: THREE.DoubleSide
-    });
+  const material = new THREE.MeshBasicMaterial({
+                        color: 0x000000,
+                        opacity: 0.0,
+                        side: THREE.DoubleSide
+                      });
 
-   var geometry = new THREE.RoundedSquare( this.o.width, this.o.height );
-   var mesh = new THREE.Mesh(geometry, material);
+   const geometry = new THREE.RoundedSquare( this.o.width, this.o.height );
+   var mesh = new THREE.Mesh( geometry, material );
 
    mesh.position.copy( this.o.panelPosition );
    mesh.rotation.x = this.o.rotation.x;
@@ -677,7 +658,7 @@ function The3DpanelCONSTR ( options ) {
   // Creates math plane. Planes thats defined by 3 coplanar points is used for moving 3d plane around.
   this._setMathPlane = function () {
 
-    var pointC = this.o.buddy.helixFunction(
+    var pointC = this.o.buddy.getPoint(
       Helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX + 100,
@@ -708,27 +689,24 @@ function The3DpanelCONSTR ( options ) {
   // Line is connecting position ring on segment and panel.
   this._createLine = function ( ) {
 
-    var lineGeometry = new THREE.Geometry();
+    const lineGeometry = new THREE.Geometry();
 
-    var lineMaterial = new THREE.LineDashedMaterial({
+    const lineMaterial = new THREE.LineDashedMaterial({
       //  linewidth: 100,
       color: 0x000000
     });
 
-    var segment = this.o.buddy;
+    // const segment = this.o.buddy;
 
     // TBD should Start on edge of position ring
     lineGeometry.vertices.push( this.o.centerPosition );
 
     // TBD should end on edge of panel
     lineGeometry.vertices.push( this.o.panelPosition );
-    // console.log(new THREE.Vector3(0,0));
 
     var line = new THREE.Line( lineGeometry, lineMaterial );
 
     this.line = line;
-
-
   }
 
   // Ring showing exact time position of panel on segment.
@@ -757,7 +735,7 @@ function The3DpanelCONSTR ( options ) {
 
     var tempHTML = templatesG[this.o.template];
 
-    var info = this.o.buddy.o;
+    const info = this.o.buddy.o;
 
     // if (this.o.buddy !== undefined ) {
     //   info = this.o.buddy.o;
@@ -861,18 +839,18 @@ function The3DpanelCONSTR ( options ) {
 
     var segment = this.o.buddy;
 
-    // var helixCenter = segment.helixFunction(Helix.getTFromZ(this.o.timePosition), true);
+    // var helixCenter = segment.getPoint(Helix.getTFromZ(this.o.timePosition), true);
 
     this.ring.position.copy( this.o.centerPosition );
 
-    var helixVector = segment.helixFunction(Helix.getTFromZ(this.o.centerPosition.z) + 0.0001, true);
+    var helixVector = segment.getPoint(Helix.getTFromZ(this.o.centerPosition.z) + 0.0001, true);
 
     this.ring.lookAt( helixVector );
   }
 
   // updates line start and end
   this._updateLineVertices = function ( panelPoint, segmentPoint ) {
-    const newPoints = [];
+    var newPoints = [];
 
     const _firstPoint = segmentPoint || this.o.centerPosition;
     const _secondPoint = panelPoint || this.o.panelPosition;
@@ -894,7 +872,7 @@ function The3DpanelCONSTR ( options ) {
 
   // Return panel position computed from center position and offsets.
   this._getPanelPosition = function ( ) {
-    return this.o.buddy.helixFunction(
+    return this.o.buddy.getPoint(
       Helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX,
@@ -926,6 +904,20 @@ function The3DpanelCONSTR ( options ) {
     // update position and line
   }
 
+  // Simple buffer for storing two vectors3
+  this._vectorBuffer = {
+    vA : 0,
+    vB : 0,
+    clear : function () {
+      this.vA = 0;
+      this.vB = 0;
+    },
+    shift : function ( next ) {
+      this.vB = this.vA;
+      this.vA = next;
+    }
+  }
+
   // Dragging function thats setting offset of panel so it the position of panel is same in regard to cursor position.
   this.setOffsetToCursor = function ( point ) {
 
@@ -937,29 +929,15 @@ function The3DpanelCONSTR ( options ) {
       self.moveOffset( dOffsets.dX, dOffsets.dY );
 
       // Shift vector buffer
-      this._vectorBuffer.push(this._vectorBuffer.vA);
+      this._vectorBuffer.shift(this._vectorBuffer.vA);
 
       return;
     }
 
     // Shift vector buffer
-    this._vectorBuffer.push(this._vectorBuffer.vA);
+    this._vectorBuffer.shift(this._vectorBuffer.vA);
 
     return;
-  }
-
-  // Simple buffer for storing two vectors3
-  this._vectorBuffer = {
-    vA : 0,
-    vB : 0,
-    clear : function () {
-      this.vA = 0;
-      this.vB = 0;
-    },
-    push : function ( next ) {
-      this.vB = this.vA;
-      this.vA = next;
-    }
   }
 
   // Gets two points and return X and Y delta offsets.
@@ -1002,7 +980,7 @@ function The3DpanelCONSTR ( options ) {
     if ( this.o.offsetY > 0 )  { deltaOffsetY *= -1}
 
     // Getting the edge point from helix functing
-    var edgePoint = this.o.buddy.helixFunction(
+    var edgePoint = this.o.buddy.getPoint(
       Helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX + deltaOffsetX,
@@ -1120,6 +1098,9 @@ function The3DpanelCONSTR ( options ) {
 
 The3DpanelCONSTR.prototype.resizeToNewCorner = function ( point ) {
 
+  var pol = 1;
+  const sizeLimit = 25;
+
   // We have to get point of old corner, that is center minus half of W and H.
   this._vectorBuffer.vA = point;
 
@@ -1127,27 +1108,31 @@ The3DpanelCONSTR.prototype.resizeToNewCorner = function ( point ) {
   if ( this._vectorBuffer.vB != 0 ) {
     var dOffsets = this.getDeltaOffsets( this._vectorBuffer.vA, this._vectorBuffer.vB );
 
-    const newWidth = this.o.width - dOffsets.dX;
+    if ( this.o.rotation.y > Math.PI ) { pol = -1 };
+
+    const newWidth = this.o.width - dOffsets.dX * pol;
     const newHeight = this.o.height - dOffsets.dY;
 
-    // Set new size
-    this.setSize ( newWidth, newHeight );
+    if ( newWidth > sizeLimit && newHeight > sizeLimit ) {
 
-    // Move offset by half of delta.
-    this.moveOffset( dOffsets.dX/2, dOffsets.dY/2 );
+      // Set new size
+      this.setSize ( newWidth, newHeight );
+
+      // Move offset by half of delta.
+      this.moveOffset( dOffsets.dX/2, dOffsets.dY/2 );
+
+    }
 
     // Shift vector buffer
-    this._vectorBuffer.push(this._vectorBuffer.vA);
+    this._vectorBuffer.shift(this._vectorBuffer.vA);
 
     return;
   }
 
   // Shift vector buffer
-  this._vectorBuffer.push(this._vectorBuffer.vA);
+  this._vectorBuffer.shift(this._vectorBuffer.vA);
 
   return;
-
-
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -1401,7 +1386,7 @@ function init( birthDate ){
 
   Panels = new ObjectsListCONSTR(scene, cssScene, The3DpanelCONSTR);
 
-  Helix = new HelixCONSTR(scene, SegmentCONSTR, birthDate);
+  Helix = new HelixCONSTR(scene, Segment, birthDate);
 
   Helix.genDefaultSegments();
 
