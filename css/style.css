@@ -6,6 +6,13 @@
   height: 100%;
 }
 
+#CornerGUI {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 99;
+}
+
 .panel3D {
   /*text-align: center;*/
   background-color: white;
@@ -13,6 +20,10 @@
   /*width: 350px;*/
 
   /*color: red;*/
+}
+
+.form-control {
+  width: 250px;
 }
 
 .draggable {
@@ -81,7 +92,6 @@
   margin-left: 10px;
   cursor: pointer;
 }
-
 
 
 .optionsPanel {

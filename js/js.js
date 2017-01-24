@@ -29,35 +29,19 @@ var Panels;
 //
 ///////////////////////////////////////////////////////////////////
 
-function Segment ( options ) {
-
-  this.self = this;
-
+// SEGMENT CURVE Is extending THREE JS Curve
+function SegCurve ( options ) {
   this.o = options;
-
-  this.Mesh = undefined;
-
-  this.cap = undefined;
-
-  // Some basic geometry settings
-  this._polygons = 1000;
-  this._radialPolygons = 30;
-  this._closed = false;
-
-
-
-  // Call it during init
-  // this.create3Dsegment();
-
 }
 
-Segment.prototype = THREE.Curve.prototype;
+// Give all your methods
+SegCurve.prototype = THREE.Curve.prototype;
 
-Segment.prototype.constructor = Segment;
+SegCurve.prototype.constructor = SegCurve;
 
-// Function to generate helix points t is from 0 to 1. When pure true there is not T stretching.
-Segment.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
-  debugger;
+// Plus two mine
+SegCurve.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
+  // debugger;
 
   var Tl = this._tStrech( t );
 
@@ -75,17 +59,41 @@ Segment.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
   return new THREE.Vector3( tx, ty, tz );
 }
 
-// This method streatch input t (0 to 1) to fit the segment limits.
-Segment.prototype._tStrech = function ( t ) {
-  debugger;
+SegCurve.prototype._tStrech = function ( t ) {
 
   var sT = t * ( this.o.T2 - this.o.T1 ) + this.o.T1;
   return sT;
 }
 
 
+function Segment ( options ) {
+
+  // this.self = this;
+
+  this.o = options;
+
+  this.curve = new SegCurve( options );
+
+  this.Mesh = undefined;
+
+  this.cap = undefined;
+
+  // Some basic geometry settings
+  this._polygons = 1000;
+  this._radialPolygons = 30;
+  this._closed = false;
+
+  // Call it during init
+  // this.create3Dsegment();
+
+}
+
+Segment.prototype = {
+
+  constructor: Segment,
+
   // TBD This should be possible to make smarter???
-  Segment.prototype.getCenterFromSurface = function(mousePoint, radiusOffset, zOffset) {
+  getCenterFromSurface: function(mousePoint, radiusOffset, zOffset) {
 
     var _radiusOffset =  radiusOffset || 0;
     var _zOffset =  zOffset || 0;
@@ -94,7 +102,7 @@ Segment.prototype._tStrech = function ( t ) {
     var T = this.o.helix.getTFromZ(mousePoint.z);
 
     // Get distance of surface point and this calculated inacurate point
-    var distanceA = this.getPointsDist(mousePoint, this.getPoint(T, true));
+    var distanceA = this.getPointsDist(mousePoint, this.curve.getPoint(T, true));
     var distanceB = distanceA;
 
     // Delta T is the step for finding the minimun distance
@@ -102,7 +110,7 @@ Segment.prototype._tStrech = function ( t ) {
     var direction = 1;
 
     // Am I under the center or above? If above we have to go down
-    if (distanceA < this.getPointsDist(mousePoint, this.getPoint(T+deltaT, true))) {
+    if (distanceA < this.getPointsDist(mousePoint, this.curve.getPoint(T+deltaT, true))) {
       direction = -1;
     }
 
@@ -110,21 +118,21 @@ Segment.prototype._tStrech = function ( t ) {
     do {
       distanceA = distanceB;
       T = T + deltaT*direction;
-      distanceB = this.getPointsDist(mousePoint, this.getPoint(T, true))
+      distanceB = this.getPointsDist(mousePoint, this.curve.getPoint(T, true))
     }
     while (distanceA > distanceB)
 
     // I will substract the last step to get the minimal T
-    return this.getPoint(T - deltaT*direction, true, _radiusOffset, _zOffset);
-  }
+    return this.curve.getPoint(T - deltaT*direction, true, _radiusOffset, _zOffset);
+  },
 
   // There is function for this in THREE js so obsolete?
-  Segment.prototype.getPointsDist = function (pA, pB) {
+  getPointsDist: function (pA, pB) {
     return (Math.sqrt(Math.pow((pB.x-pA.x),2)+Math.pow((pB.y-pA.y),2)+Math.pow((pB.z-pA.z),2)));
-  }
+  },
 
   // Is reducing polygons based on ration of segment to whole helix
-  Segment.prototype._getReducedPolygons = function( polygons ) {
+  _getReducedPolygons: function( polygons ) {
 
     const threshHold = 10;
 
@@ -136,9 +144,9 @@ Segment.prototype._tStrech = function ( t ) {
       return threshHold;
     }
 
-  }
+  },
 
-  Segment.prototype._putCap = function ( T ) {
+  _putCap: function ( T ) {
 
     const material = new THREE.MeshBasicMaterial( {
       color: this.o.color,
@@ -151,10 +159,10 @@ Segment.prototype._tStrech = function ( t ) {
     const geometry = new THREE.CircleGeometry(this.o.thickness, this._radialPolygons);
 
     var capMesh =  new THREE.Mesh(geometry, material)
-    capMesh.position.copy( this.getPoint( T, true ) );
+    capMesh.position.copy( this.curve.getPoint( T, true ) );
     capMesh.visible = this.o.visible;
 
-    const helixVector = this.getPoint( T + 0.0001, true );
+    const helixVector = this.curve.getPoint( T + 0.0001, true );
 
     capMesh.lookAt( helixVector );
 
@@ -163,9 +171,9 @@ Segment.prototype._tStrech = function ( t ) {
     this.cap = capMesh;
     this.cap.dad = this;
 
-  }
+  },
 
-  Segment.prototype.create3Dsegment = function () {
+  create3Dsegment: function () {
 
     const material = new THREE.MeshBasicMaterial( {
       color: this.o.color,
@@ -174,8 +182,9 @@ Segment.prototype._tStrech = function ( t ) {
     } );
 
     material.side = THREE.DoubleSide;
-    debugger;
-    const geometry = new THREE.TubeGeometry(new this.constructor( this.o ),
+    // debugger;
+
+    const geometry = new THREE.TubeGeometry(this.curve,
       this._getReducedPolygons( this._polygons ),
       this.o.thickness,
       this._radialPolygons,
@@ -202,22 +211,22 @@ Segment.prototype._tStrech = function ( t ) {
     }
 
     // return this.Mesh;
-  }
+  },
 
   // Update geometry of segment so new options will be rendered.
-  Segment.prototype.updateGeometry = function () {
+  updateGeometry: function () {
 
-    const newGeometry = new THREE.TubeGeometry(new this.constructor( this.o ),
+    const newGeometry = new THREE.TubeGeometry(new SegCurve( this.o ),
     this._getReducedPolygons( this._polygons ),
     this.o.thickness,
     this._radialPolygons,
     this._closed);
 
     this.Mesh.geometry = newGeometry;
-  }
+  },
 
 
-  Segment.prototype.visible = function ( visible ) {
+  visible: function ( visible ) {
 
     if ( visible ) {
 
@@ -235,13 +244,14 @@ Segment.prototype._tStrech = function ( t ) {
 
     }
 
-  }
+  },
 
   // Who is that???
-  Segment.prototype.TALK = function() {
+  TALK: function() {
     console.log("This is segment '"+ this.o.uuid +"' starts at: "+ this.o.T1 +" and ends at: "+ this.o.T2);
   }
 
+}
 
 
 ///////////////////////////////////////////////////////////////////
@@ -250,6 +260,7 @@ Segment.prototype._tStrech = function ( t ) {
 ///////////////////////////////////////////////////////////////////
 
 function HelixCONSTR (scene, segmentConst, birthDate) {
+
   var self = this;
 
   function segmentOptionsCONSTR () {
@@ -371,14 +382,13 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
     if (z < 0) {infoLog("Warning - T from Z: z is too low returning 0. z: " + z); return 0;}
 
     return z / this.height;
-
   }
 
   // Put one segment to scene
   this.addSegmentToScene = function ( options ) {
 
     options.helix = this;
-    debugger;
+    // debugger;
     var newSegment = new self.segmentConstructor( options );
 
     newSegment.create3Dsegment();
@@ -397,6 +407,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
     var stops = [];
 
+    // If wanted interuptions can be generated for provided time window
     const _start = start || this.birthDate;
     const _end =  end || new Date();
 
@@ -447,9 +458,9 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
     var segmentsList = [];
 
     for (var i = 0; i < interuptions.length - 1; i++) {
-      console.log(i);
+
       var newOpts = new segmentOptionsCONSTR();
-      // newOpts.birthDate = bDate;
+
       newOpts.T1 = self.getTFromTime( interuptions[i] );
       newOpts.T2 = self.getTFromTime( interuptions[i+1] );
       newOpts.click = "Segment #"+i;
@@ -504,8 +515,10 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
     pushedSegOpt.T2 = this.segmentBuffer.T2;
     var pushedSegment = self.addSegmentToScene( pushedSegOpt );
 
+    // This means new segment is starting in one segment and ending in different
+    // Therefore I have to shrink the first one and last one. And delet the one inside the new one.
     if ((endSeg - startSeg) >= 1 ) {
-      console.log(" Pushed segment is coming thru one or more segment");
+      // console.log(" Pushed segment is coming thru one or more segment");
 
       startSegment.o.T2 = this.segmentBuffer.T1;
       endSegment.o.T1 = this.segmentBuffer.T2;
@@ -513,19 +526,18 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
       startSegment.updateGeometry();
       endSegment.updateGeometry();
 
-      var removedSegments = this.segments.splice(startSeg+1, (endSeg - startSeg - 1), pushedSegment);
+      var removedSegments = this.segments.splice(startSeg + 1, (endSeg - startSeg - 1), pushedSegment);
 
       console.log(removedSegments);
 
-      for (var i=0; i < removedSegments.length; i++){
+      for (var i = 0; i < removedSegments.length; i++){
         self.removeSegment(removedSegments[i]);
       }
 
     } else if (endSeg == startSeg) {
-      console.log(" Pushed segment is in one segment");
+      // console.log(" Pushed segment is in one segment");
 
-      // Shrink the segment
-
+      // Copy segment options to crete new indentical one.
       var lastSegOpt = Object.assign({}, startSegment.o);
       lastSegOpt.bottomCap = false;
       lastSegOpt.T1 = this.segmentBuffer.T2;
@@ -658,7 +670,7 @@ function The3DpanelCONSTR ( options ) {
   // Creates math plane. Planes thats defined by 3 coplanar points is used for moving 3d plane around.
   this._setMathPlane = function () {
 
-    var pointC = this.o.buddy.getPoint(
+    var pointC = this.o.buddy.curve.getPoint(
       Helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX + 100,
@@ -843,7 +855,7 @@ function The3DpanelCONSTR ( options ) {
 
     this.ring.position.copy( this.o.centerPosition );
 
-    var helixVector = segment.getPoint(Helix.getTFromZ(this.o.centerPosition.z) + 0.0001, true);
+    var helixVector = segment.curve.getPoint(Helix.getTFromZ(this.o.centerPosition.z) + 0.0001, true);
 
     this.ring.lookAt( helixVector );
   }
@@ -872,7 +884,7 @@ function The3DpanelCONSTR ( options ) {
 
   // Return panel position computed from center position and offsets.
   this._getPanelPosition = function ( ) {
-    return this.o.buddy.getPoint(
+    return this.o.buddy.curve.getPoint(
       Helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX,
@@ -882,10 +894,11 @@ function The3DpanelCONSTR ( options ) {
   // Set size of Plane to match the size of html panel. This has to be called after the html is rendered otherwise it sets 0,0
   this.setPlaneSizeToHTML = function () {
 
-      self.setSize( this.html.offsetWidth, this.html.offsetHeight );
-
       this.html.style.width = "";
       this.html.style.height = "";
+
+      self.setSize( this.html.offsetWidth, this.html.offsetHeight );
+
 
       self.setLineTouchingPoint()
       // console.log( this.html.offsetWidth+ " w and h " +this.html.offsetHeight );
@@ -980,7 +993,7 @@ function The3DpanelCONSTR ( options ) {
     if ( this.o.offsetY > 0 )  { deltaOffsetY *= -1}
 
     // Getting the edge point from helix functing
-    var edgePoint = this.o.buddy.getPoint(
+    var edgePoint = this.o.buddy.curve.getPoint(
       Helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX + deltaOffsetX,
@@ -1099,7 +1112,7 @@ function The3DpanelCONSTR ( options ) {
 The3DpanelCONSTR.prototype.resizeToNewCorner = function ( point ) {
 
   var pol = 1;
-  const sizeLimit = 25;
+  const sizeLimit = 50;
 
   // We have to get point of old corner, that is center minus half of W and H.
   this._vectorBuffer.vA = point;
@@ -1108,18 +1121,20 @@ The3DpanelCONSTR.prototype.resizeToNewCorner = function ( point ) {
   if ( this._vectorBuffer.vB != 0 ) {
     var dOffsets = this.getDeltaOffsets( this._vectorBuffer.vA, this._vectorBuffer.vB );
 
-    if ( this.o.rotation.y > Math.PI ) { pol = -1 };
+    // Check if the panel is mirrored or not.
+    if ( this.o.rotation.y == Helix.getAngle ( this.o.panelPosition ) ) { pol = -1 };
 
     const newWidth = this.o.width - dOffsets.dX * pol;
     const newHeight = this.o.height - dOffsets.dY;
 
-    if ( newWidth > sizeLimit && newHeight > sizeLimit ) {
 
+    if ( newWidth > sizeLimit && newHeight > sizeLimit ) {
+      // console.log("movin");
       // Set new size
       this.setSize ( newWidth, newHeight );
 
       // Move offset by half of delta.
-      this.moveOffset( dOffsets.dX/2, dOffsets.dY/2 );
+      this.moveOffset( dOffsets.dX/2 , dOffsets.dY/2 );
 
     }
 
