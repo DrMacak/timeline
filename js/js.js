@@ -259,7 +259,7 @@ Segment.prototype = {
 //
 ///////////////////////////////////////////////////////////////////
 
-function HelixCONSTR (scene, segmentConst, birthDate) {
+function Helix (scene, segmentConst, birthDate) {
 
   var self = this;
 
@@ -395,7 +395,7 @@ function HelixCONSTR (scene, segmentConst, birthDate) {
 
     this.scene3d.add( newSegment.Mesh );
 
-    if ( newSegment.cap !== undefined ) {
+    if ( newSegment.cap ) {
       this.scene3d.add( newSegment.cap );
     }
 
@@ -605,7 +605,7 @@ function The3DpanelCONSTR ( options ) {
 
   this.css3d = undefined;
   this.plane = undefined;
-  this.html = undefined;
+  // this.html = undefined;
 
   this.line = undefined;
   this.ring = undefined;
@@ -624,14 +624,14 @@ function The3DpanelCONSTR ( options ) {
 
     self._setMathPlane();
 
-    this.html = self.setTemplateElements();
+    this.o.html = self.setTemplateElements();
 
-    // debugLog(this.html);
+    // debugLog(this.o.html);
 
     self._createCssObject();
     this.css3d.uuid = this.plane.uuid;
 
-    nodeScriptReplace(this.html);
+    nodeScriptReplace(this.o.html);
 
     self._createLine();
     self._createPositionRing();
@@ -683,7 +683,7 @@ function The3DpanelCONSTR ( options ) {
   //  Creates CSS3D object same parameters as 3D plane.
   this._createCssObject = function ( ) {
 
-    var cssObject = new THREE.CSS3DObject( this.html );
+    var cssObject = new THREE.CSS3DObject( this.o.html );
 
     cssObject.position.copy( this.o.panelPosition );
     cssObject.rotation.x = this.o.rotation.x;
@@ -749,7 +749,7 @@ function The3DpanelCONSTR ( options ) {
 
     const info = this.o.buddy.o;
 
-    // if (this.o.buddy !== undefined ) {
+    // if (this.o.buddy ) {
     //   info = this.o.buddy.o;
     // }
 
@@ -762,30 +762,22 @@ function The3DpanelCONSTR ( options ) {
 
     div.className = "panel3D";
 
-    // div.style.width = this.o.width;
-    // div.style.height = this.o.height;
-
-    // div.style.cssText = ("visibility: visible");
-
-
-    //  div.setAttribute("myPlaneID", planeID);
-
     //  Closing cross
-    if (div.getElementsByClassName('glyphicon-remove')[0] !== undefined ) {
+    if ( div.getElementsByClassName('glyphicon-remove')[0] ) {
       infoLog("glyphicon-remove found");
       var closeCross = div.getElementsByClassName('glyphicon-remove')[0];
       closeCross.setAttribute("onclick", "deleteObjectWRP(['" + this.o.uuid + "'])");
     }
 
     // .glyphicon-fullscreen
-    // if (div.getElementsByClassName('glyphicon-fullscreen')[0] !== undefined ) {
+    // if (div.getElementsByClassName('glyphicon-fullscreen')[0] ) {
     //   infoLog("glyphicon-fullscreen found");
     //   var positionCross = div.getElementsByClassName('glyphicon-fullscreen')[0];
     //   positionCross.setAttribute("onclick", "chanegePositionWRP('" + this.o.uuid + "')");
     // }
 
     //  Time label
-    if (div.getElementsByClassName('timeLabel')[0] !== undefined ) {
+    if ( div.getElementsByClassName('timeLabel')[0] ) {
       infoLog("timeLabel found");
       var segment = this.o.buddy;
       var timeLabel = div.getElementsByClassName('timeLabel')[0];
@@ -793,14 +785,14 @@ function The3DpanelCONSTR ( options ) {
     }
 
     //  Start New Segment button
-    if (div.getElementsByClassName('startBtn')[0] !== undefined ) {
+    if ( div.getElementsByClassName('startBtn')[0] ) {
       infoLog("startBtn found");
       var startBtn = div.getElementsByClassName('startBtn')[0];
       startBtn.setAttribute("onclick", "startNewSegmentWRP('" + Helix.getTFromZ(this.o.centerPosition.z) + "','" + this.o.uuid + "')");
     }
 
     //  Delete Button
-    if (div.getElementsByClassName('delBtn')[0] !== undefined ) {
+    if ( div.getElementsByClassName('delBtn')[0] ) {
       infoLog("delBtn found");
       var delBtn = div.getElementsByClassName('delBtn')[0];
       delBtn.innerHTML = "Delete " + info.uuid + " ?";
@@ -809,7 +801,7 @@ function The3DpanelCONSTR ( options ) {
     }
 
     //  Color Input field
-    if (div.getElementsByClassName('colInp')[0] !== undefined ) {
+    if ( div.getElementsByClassName('colInp')[0] ) {
       infoLog("colInp found");
       var colInp = div.getElementsByClassName('colInp')[0];
       // colInp.style.cssText = ("background-color: " +   self._decToColor(info.color));
@@ -820,14 +812,18 @@ function The3DpanelCONSTR ( options ) {
     }
 
     //  File Input field
-    if (div.getElementsByClassName('fileInp')[0] !== undefined ) {
-      infoLog("fileInp found");
-      var fileInp = div.getElementsByClassName('fileInp')[0];
-      fileInp.setAttribute("targetID", this.o.uuid);
+    if ( div.getElementsByClassName('filesInp')[0] ) {
+      console.log("pini");
+      var fileInps = div.getElementsByClassName('filesInp');
+      for ( var i = 0; i < fileInps.length; i++ ) {
+
+        fileInps[i].setAttribute("targetID", this.o.uuid);
+
+      }
     }
 
     // Panel body on 3D panel add uid of plane to it so I can fill it with media.
-    if (div.getElementsByClassName('panel-body')[0] !== undefined ) {
+    if ( div.getElementsByClassName('panel-body')[0] ) {
       infoLog("panel-body found");
       var colInp = div.getElementsByClassName('panel-body')[0];
       // colInp.style.cssText = ("background-color: " +   self._decToColor(info.color));
@@ -836,7 +832,7 @@ function The3DpanelCONSTR ( options ) {
 
 
 
-    // this.html = div;
+    // this.o.html = div;
     return div;
   }
 
@@ -894,14 +890,14 @@ function The3DpanelCONSTR ( options ) {
   // Set size of Plane to match the size of html panel. This has to be called after the html is rendered otherwise it sets 0,0
   this.setPlaneSizeToHTML = function () {
 
-      this.html.style.width = "";
-      this.html.style.height = "";
+      this.o.html.style.width = "";
+      this.o.html.style.height = "";
 
-      self.setSize( this.html.offsetWidth, this.html.offsetHeight );
+      self.setSize( this.o.html.offsetWidth, this.o.html.offsetHeight );
 
 
       self.setLineTouchingPoint()
-      // console.log( this.html.offsetWidth+ " w and h " +this.html.offsetHeight );
+      // console.log( this.o.html.offsetWidth+ " w and h " +this.o.html.offsetHeight );
 
   }
 
@@ -1053,7 +1049,7 @@ function The3DpanelCONSTR ( options ) {
 
   this.updateTemplate = function () {
 
-    this.html.innerHTML = self.setTemplateElements().innerHTML;
+    this.o.html.innerHTML = self.setTemplateElements().innerHTML;
 
   }
 
@@ -1064,8 +1060,8 @@ function The3DpanelCONSTR ( options ) {
     // Do not change if its the same
     if ( this.o.width != w || this.o.height != h ) {
 
-      this.html.style.width = w;
-      this.html.style.height = h;
+      this.o.html.style.width = w;
+      this.o.html.style.height = h;
 
       this.o.width = w;
       this.o.height = h;
@@ -1087,7 +1083,7 @@ function The3DpanelCONSTR ( options ) {
       this.line.visible = true;
       this.ring.visible = true;
 
-      this.html.style.visibility = "visible";
+      this.o.html.style.visibility = "visible";
 
     } else {
 
@@ -1099,7 +1095,7 @@ function The3DpanelCONSTR ( options ) {
       this.line.visible = false;
       this.ring.visible = false;
 
-      this.html.style.visibility = "hidden";
+      this.o.html.style.visibility = "hidden";
 
     }
   }
@@ -1176,7 +1172,8 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
     this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
     this.visible = true,
     this.justRing = false,
-    this.buddy = undefined
+    this.buddy = undefined,
+    this.html = undefined
     // this.color = 0xFFFFFF,
     // this.timePosition = 0,
     // this.transparency = 0,
@@ -1223,7 +1220,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
       var panel = self.getByProp( "template", template );
 
       // If panel exists and is meant only once in scene
-      if ( panel !== undefined && unique ) {
+      if ( panel && unique ) {
 
         var newZ = onObject.getCenterFromSurface(mousePointer).z;
         var oldZ = panel.o.centerPosition.z;
@@ -1401,7 +1398,7 @@ function init( birthDate ){
 
   Panels = new ObjectsListCONSTR(scene, cssScene, The3DpanelCONSTR);
 
-  Helix = new HelixCONSTR(scene, Segment, birthDate);
+  Helix = new Helix(scene, Segment, birthDate);
 
   Helix.genDefaultSegments();
 
@@ -1576,71 +1573,6 @@ function init( birthDate ){
 
 }
 
-///////////////////////////////////////////////////////////////////
-// Panel Wrappers
-//
-///////////////////////////////////////////////////////////////////
-
-function deleteObjectWRP ( uuids ) {
-
-  for (var i=0; i < uuids.length; i++ ) {
-
-    var uuid = uuids[i];
-
-    var segment = Helix.getByProp("uuid", uuid);
-
-    if ( segment !== undefined ){
-
-      Helix.removeSegment ( segment );
-
-      Panels.getByProp( "template", "mouseoverSegment" ).visible(false);
-
-    }
-
-    var panel = Panels.getByProp("uuid", uuid);
-
-    if ( panel !== undefined) {
-
-      Panels.removeObject( panel );
-
-    }
-  }
-}
-
-function startNewSegmentWRP ( T1, PanelUuid ) {
-
-    Helix.segmentBuffer.active = true;
-    // Helix.segmentBuffer.shadowSegment.visible( true );
-
-    Helix.segmentBuffer.T1 = parseFloat( T1 );
-
-    var panel = Panels.getByProp("uuid", PanelUuid);
-
-    if ( panel !== undefined) {
-
-      panel.visible(false);
-
-    }
-}
-
-
-// function chanegePositionWRP ( uuid ) {
-//   console.log(mouse);
-//   mouse.dragging = true;
-//     // while (mouse.leftCliked) {
-//     //   console.log("pini");
-//     // }
-// }
-
-// function changeSegmentWRP (segInfo) {
-//   changeSegmentPars (segInfo);
-//   hidePanel(panelId);
-// }
-//
-//
-// function hidePanel (id) {
-//   document.getElementById(id).style.cssText += ("visible: false");
-// }
 
 ///////////////////////////////////////////////////////////////////
 // Mouse clicks
@@ -1866,7 +1798,7 @@ function updateRenderes () {
 // when ready, start.
 $(document).ready(function() {
 
-  init(birthDateINP);
+  init( birthDateINP );
 
   animate();
 });
