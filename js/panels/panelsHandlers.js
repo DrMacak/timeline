@@ -5,7 +5,16 @@ const events = {
   ".videoInp" : { "event" : "change", "func" : function() { uploadData( this, "vid" ) } },
   ".audioInp" : { "event" : "change", "func" : function() { uploadData( this, "aud" ) } },
   ".wwwInp" : { "event" : "click", "func" : function() { uploadData( this ) } },
-  ".textInp" : { "event" : "change", "func" : function() { uploadData( this ) } }
+  ".textInp" : { "event" : "change", "func" : function() { uploadData( this ) } },
+  ".closeCross" : { "event" : "click", "func" : function() { closePanel( this ) } },
+
+  // DEBUG
+
+  "#BTN1" : { "event" : "click", "func" : function() { Overlay.show(); } },
+  "#BTN2" : { "event" : "click", "func" : function() { Overlay.hide(); } },
+  "#BTN3" : { "event" : "click", "func" : function() {  } },
+  ".resizeB" : { "event" : "click", "func" : function() { resizePanel(this) } },
+
 };
 
 for ( var key in events ) {
@@ -19,7 +28,7 @@ for ( var key in events ) {
 ///////////////////////////////////////////////////////////////////
 
 function uploadData( input, type ) {
-  console.log("pini");
+  
   if ( input.files ) {
 
     var reader = new FileReader();
@@ -53,55 +62,75 @@ function uploadData( input, type ) {
       }
     }
 
+    reader.onloadend = function () {
+      const targetID = input.getAttribute( "targetID" );
+      Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
+    }
 
     reader.readAsDataURL( input.files[0] );
+
   }
+
 };
 
-function createImage ( e, input ) {
+function createImage ( e, element ) {
+
+
   var img = document.createElement( 'img' );
-  const targetID = input.getAttribute( "targetID" );
   img.setAttribute( "src", e.target.result );
-  console.log(e);
+
 
   img.className =  "mediaImg";
-  document.getElementById( targetID ).innerHTML = img.outerHTML;
 
-  Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
+  const panel3D = getMyPanel3D( element );
+  panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
 
 }
 
-function createVideo ( e, input ) {
+function createVideo ( e, element ) {
 
   var video = document.createElement( "video" );
-  const targetID = input.getAttribute( "targetID" );
+
   video.setAttribute( "src", e.target.result );
   video.setAttribute( "controls", "true");
-  console.log(e);
 
   video.className =  "mediaImg";
-  document.getElementById( targetID ).innerHTML = video.outerHTML;
 
-  Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
 
+
+  const panel3D = getMyPanel3D( element );
+  var mediaTarget = panel3D.getElementsByClassName( "mediaTarget" )[0];
+  mediaTarget.style.width = "";
+  mediaTarget.style.height = "";
+  mediaTarget.innerHTML = video.outerHTML;
 }
 
-function createAudio ( e, input ) {
+function createAudio ( e, element ) {
 
   var audio = document.createElement( "audio" );
-  const targetID = input.getAttribute( "targetID" );
+  // const targetID = input.getAttribute( "targetID" );
   audio.setAttribute( "src", e.target.result );
   audio.setAttribute( "controls", "true");
   console.log(e);
 
   audio.className =  "mediaImg";
-  document.getElementById( targetID ).innerHTML = audio.outerHTML;
 
-  Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
+  const panel3D = getMyPanel3D( element );
+  panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = audio.outerHTML;
+
+  // Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
 
 }
 
 function createGallery () {
+
+}
+
+
+function closePanel ( element ) {
+  const htmlPanel = getMyPanel3D( element );
+  const panel = Panels.getByProp( "uuid", htmlPanel.id );
+  Panels.removeObject( panel );
 
 }
 
@@ -167,5 +196,23 @@ function startNewSegmentWRP ( T1, PanelUuid ) {
 // }
 
 function checkFileType() {
+
+}
+
+function getMyPanel3D ( element ) {
+  const parents = $( element ).parents();
+  for (var i = 0; i < parents.length; i++ ) {
+    if ( parents[i]["className"] == "panel3D" ) {
+       return parents[i];
+    }
+  }
+  console.error("This element does not have Panel3D parent.");
+}
+
+// DEBUG
+
+function resizePanel ( element ) {
+  Panels.getByProp("uuid", getMyPanel3D(element).id).setPlaneSizeToHTML();
+  console.log("pini");
 
 }

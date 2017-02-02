@@ -34,10 +34,10 @@ THREE.RoundedSquare = function (width, height, radius, segments) {
 	geometry.merge( planeB );
 
   geometry.parameters = {
-    width,
-    height,
-    radius : _radius,
-    segments : _segments
+    "width" : width,
+    "height" : height,
+    "radius" : _radius,
+    "segments" : _segments
   };
 
 	return geometry;

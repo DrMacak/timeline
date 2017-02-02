@@ -1,11 +1,16 @@
 // These globals I would like to avoid in future.
-var camera, scene, renderer,
-  controls,
-  cssRenderer, cssScene;
+var camera, controls,
+    scene, renderer,
+    cssScene,  cssRenderer;
 
 var raycaster, currentIntersected, donutMesh;
 var INTERSECTED;
 var mouse = new THREE.Vector2();
+
+var pause = false;
+var updatePanels = false;
+
+
 
 // DEBUG
 var cssObject, plane;
@@ -22,7 +27,8 @@ var Helix;
 // List of panels and other non-segment objects.
 var Panels;
 
-// list of start and end of segment
+// HTML Overlay for showing galleries and fullscreenmode
+var Overlay;
 
 ///////////////////////////////////////////////////////////////////
 // 3D segment constructor.
@@ -646,6 +652,7 @@ function The3DpanelCONSTR ( options ) {
   const material = new THREE.MeshBasicMaterial({
                         color: 0x000000,
                         opacity: 0.0,
+                        // transparent: true,
                         side: THREE.DoubleSide
                       });
 
@@ -761,13 +768,14 @@ function The3DpanelCONSTR ( options ) {
     div.innerHTML = tempHTML;
 
     div.className = "panel3D";
+    div.setAttribute("id", this.o.uuid);
 
     //  Closing cross
-    if ( div.getElementsByClassName('glyphicon-remove')[0] ) {
-      infoLog("glyphicon-remove found");
-      var closeCross = div.getElementsByClassName('glyphicon-remove')[0];
-      closeCross.setAttribute("onclick", "deleteObjectWRP(['" + this.o.uuid + "'])");
-    }
+    // if ( div.getElementsByClassName('glyphicon-remove')[0] ) {
+    //   infoLog("glyphicon-remove found");
+    //   var closeCross = div.getElementsByClassName('glyphicon-remove')[0];
+    //   closeCross.setAttribute("onclick", "deleteObjectWRP(['" + this.o.uuid + "'])");
+    // }
 
     // .glyphicon-fullscreen
     // if (div.getElementsByClassName('glyphicon-fullscreen')[0] ) {
@@ -888,17 +896,54 @@ function The3DpanelCONSTR ( options ) {
     }
 
   // Set size of Plane to match the size of html panel. This has to be called after the html is rendered otherwise it sets 0,0
+  this.updateSize = 0;
   this.setPlaneSizeToHTML = function () {
 
-      this.o.html.style.width = "";
-      this.o.html.style.height = "";
+    if (!this.updateSize) {
+      this.updateSize = 5;
+      return;
+    }
 
-      self.setSize( this.o.html.offsetWidth, this.o.html.offsetHeight );
+    var self = this;
 
+    this.o.html.style.width = "";
+    this.o.html.style.height = "";
 
-      self.setLineTouchingPoint()
-      // console.log( this.o.html.offsetWidth+ " w and h " +this.o.html.offsetHeight );
+    // getSize ();
+    // self.setSize( self.o.html.offsetWidth+1, self.o.html.offsetHeight+1 );
 
+    self.setSize( self.o.html.offsetWidth+1, self.o.html.offsetHeight+1 );
+    // setTimeout(function() {
+    // }, 100);
+
+    this.updateSize--;
+
+    // function getSize () {
+    //   console.log( self.o.html.offsetWidth+ " offsetWidth and offsetHeight " +self.o.html.offsetHeight );
+    //   console.log( self.o.html.style.width+ " style.w and style.h " +self.o.html.style.height );
+    //   console.log( self.o.width+ " o.w and o.h " +self.o.height );
+    // }
+
+  }
+
+  // sets size of 3D plane and also CSS element.
+  // Also makes new geometry of rounded square.
+  this.setSize = function ( w, h ) {
+
+    // Do not change if its the same
+    if ( this.o.width != w || this.o.height != h ) {
+
+      this.o.html.style.width = w;
+      this.o.html.style.height = h;
+
+      this.o.width = w;
+      this.o.height = h;
+
+      this.plane.geometry = new THREE.RoundedSquare(w, h, 4);
+
+      self.setLineTouchingPoint();
+
+    }
   }
 
   // adds differential offset
@@ -1053,24 +1098,7 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
-  // sets size of 3D plane and also CSS element.
-  // Also makes new geometry of rounded square.
-  this.setSize = function ( w, h ) {
-
-    // Do not change if its the same
-    if ( this.o.width != w || this.o.height != h ) {
-
-      this.o.html.style.width = w;
-      this.o.html.style.height = h;
-
-      this.o.width = w;
-      this.o.height = h;
-
-      this.plane.geometry = new THREE.RoundedSquare(w, h, 4);
-    }
-  }
-
-  // Sets all components of 3D Panel visibility
+    // Sets all components of 3D Panel visibility
   this.visible = function ( visible ) {
 
     if ( visible ) {
@@ -1163,8 +1191,8 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
   function objectOptionsCONST () {
     this.uuid = "",
     this.template = "default",
-    this.width = 350,
-    this.height = 250,
+    this.width = 10,
+    this.height = 10,
     this.centerPosition = new THREE.Vector3(0, 0, 0),
     this.offsetX = 200,
     this.offsetY = 150,
@@ -1256,25 +1284,14 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
     newOpts.buddy = onObject;
 
-    var centerPoint = onObject.getCenterFromSurface(mousePointer);
-    // var offsetPoint = onObject.getCenterFromSurface(mousePointer, xOffset, yOffset);
+    // Center positio
+    const centerPoint = onObject.getCenterFromSurface(mousePointer);
+    newOpts.centerPosition = centerPoint;
 
-    newOpts.centerPosition =  centerPoint;
-
-    // console.log(action.indexOf('leftClick'));
-
+    // Rotation
     if ( action.indexOf('leftClick') >= 0 ) {
 
-      // panel.setRotationY(  );
-      // var yPol = 1;
-      //
-      //   if (camera.rotation.y < 0) {
-      //     yPol = -1;
-      //   }
-
       newOpts.rotation = new THREE.Vector3( Math.PI/2, Helix.getAngle( centerPoint ), 0);
-      console.log(newOpts.rotation.y);
-      // controls.target.set( newOpts.centerPosition );
 
     } else {
 
@@ -1286,8 +1303,8 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
     var newPanel = self.createPanel( newOpts );
 
-    updateRenderes( );
-
+    updateRenderes();
+    // debugger;
     newPanel.setPlaneSizeToHTML();
 
     return newPanel;
@@ -1362,7 +1379,7 @@ ObjectsListCONSTR.prototype.faceTowardCamera = function ( ) {
 
 function init( birthDate ){
 
-  var viewDistance = 50000;
+  const viewDistance = 50000;
 
   placeEventListeners();
 
@@ -1401,6 +1418,9 @@ function init( birthDate ){
   Helix = new Helix(scene, Segment, birthDate);
 
   Helix.genDefaultSegments();
+
+  Overlay = new Overlay("Overlay");
+  Overlay.hide();
 
   // console.log(Panels);
 
@@ -1564,10 +1584,14 @@ function init( birthDate ){
     var key = e.which || e.keyCode;
     if (key === 27) {
       Panels.removeLastPanel();
-      // var lastPan = Panels.objects[Panels.objects.length-1];
-      // lastPan.switchYRotation();
+    }
+
+    if (key === 106) {
+      Panels.removeLastPanel();
+
     }
   }, false );
+
 
 }
 
@@ -1583,7 +1607,7 @@ function init( birthDate ){
 /////////////////////// MOUSE CLICK ////////////////////////////////
 
 function mouseDown ( e ) {
-  console.log(Helix.getAngle(camera.position) + ": camera rotation");
+  // console.log(Helix.getAngle(camera.position) + ": camera rotation");
 
   var action = "";
 
@@ -1714,6 +1738,16 @@ function doAction (action, onObject, mousePointer) {
 ///////////////////////////////////////////////////////////////////
 
 function animate() {
+
+  // debugger;
+  for (var i = 0; i < Panels.objects.length;i++ ) {
+    const panel = Panels.objects[i];
+    if (panel.updateSize) {
+      debugger;
+      panel.setPlaneSizeToHTML();
+    }
+
+  }
   //
   // setTimeout( function() {
   //
@@ -1721,11 +1755,25 @@ function animate() {
   //
   //  }, 10000 / 30 );
   //
+  if ( !pause ) {
+    controls.update();
+    render();
+  }
 
-  controls.update();
-  render();
   requestAnimationFrame( animate );
 }
+
+function updatePanelSizes () {
+
+  for (var i = 0; i < Panels.objects.length;i++ ) {
+    const panel = Panels.objects[i];
+    panel.setPlaneSizeToHTML();
+  }
+
+updatePanels = false;
+
+}
+
 
 ///////////////////////////////////////////////////////////////////
 // Renderer
@@ -1733,6 +1781,7 @@ function animate() {
 ///////////////////////////////////////////////////////////////////
 
 function render() {
+
 
   var action = "mouseover";
 
