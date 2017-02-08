@@ -711,16 +711,15 @@ function The3DpanelCONSTR ( options ) {
     const lineGeometry = new THREE.Geometry();
 
     const lineMaterial = new THREE.LineDashedMaterial({
+      // Line width doesn work under windows
       //  linewidth: 100,
       color: 0x000000
     });
 
-    // const segment = this.o.buddy;
-
     // TBD should Start on edge of position ring
     lineGeometry.vertices.push( this.o.centerPosition );
 
-    // TBD should end on edge of panel
+    // Should end on edge of panel
     lineGeometry.vertices.push( this.o.panelPosition );
 
     var line = new THREE.Line( lineGeometry, lineMaterial );
@@ -820,27 +819,24 @@ function The3DpanelCONSTR ( options ) {
     }
 
     //  File Input field
-    if ( div.getElementsByClassName('filesInp')[0] ) {
-      console.log("pini");
-      var fileInps = div.getElementsByClassName('filesInp');
-      for ( var i = 0; i < fileInps.length; i++ ) {
-
-        fileInps[i].setAttribute("targetID", this.o.uuid);
-
-      }
-    }
+    // if ( div.getElementsByClassName('filesInp')[0] ) {
+    //   console.log("pini");
+    //   var fileInps = div.getElementsByClassName('filesInp');
+    //   for ( var i = 0; i < fileInps.length; i++ ) {
+    //
+    //     fileInps[i].setAttribute("targetID", this.o.uuid);
+    //
+    //   }
+    // }
 
     // Panel body on 3D panel add uid of plane to it so I can fill it with media.
-    if ( div.getElementsByClassName('panel-body')[0] ) {
-      infoLog("panel-body found");
-      var colInp = div.getElementsByClassName('panel-body')[0];
-      // colInp.style.cssText = ("background-color: " +   self._decToColor(info.color));
-      colInp.setAttribute("id", this.o.uuid);
-    }
+    // if ( div.getElementsByClassName('panel-body')[0] ) {
+    //   infoLog("panel-body found");
+    //   var colInp = div.getElementsByClassName('panel-body')[0];
+    //   // colInp.style.cssText = ("background-color: " +   self._decToColor(info.color));
+    //   colInp.setAttribute("id", this.o.uuid);
+    // }
 
-
-
-    // this.o.html = div;
     return div;
   }
 
@@ -904,26 +900,12 @@ function The3DpanelCONSTR ( options ) {
       return;
     }
 
-    var self = this;
-
     this.o.html.style.width = "";
     this.o.html.style.height = "";
 
-    // getSize ();
-    // self.setSize( self.o.html.offsetWidth+1, self.o.html.offsetHeight+1 );
-
-    self.setSize( self.o.html.offsetWidth+1, self.o.html.offsetHeight+1 );
-    // setTimeout(function() {
-    // }, 100);
+    self.setSize( this.o.html.offsetWidth+1, this.o.html.offsetHeight+1 );
 
     this.updateSize--;
-
-    // function getSize () {
-    //   console.log( self.o.html.offsetWidth+ " offsetWidth and offsetHeight " +self.o.html.offsetHeight );
-    //   console.log( self.o.html.style.width+ " style.w and style.h " +self.o.html.style.height );
-    //   console.log( self.o.width+ " o.w and o.h " +self.o.height );
-    // }
-
   }
 
   // sets size of 3D plane and also CSS element.
@@ -1006,7 +988,7 @@ function The3DpanelCONSTR ( options ) {
 
     const dXOffset = Math.sqrt( Math.pow( vectorLen, 2) - Math.pow( dYOffset, 2) ) * pol;
 
-    return { dX : dXOffset, dY : dYOffset };
+    return { "dX" : dXOffset, "dY" : dYOffset };
 
   }
 
@@ -1057,7 +1039,7 @@ function The3DpanelCONSTR ( options ) {
 
   }
 
-  // Rotatates panel only in Y
+  // Rotates panel only in Y
   this.setRotationY = function ( angle ) {
 
     this.plane.rotation.y = angle;
@@ -1067,6 +1049,7 @@ function The3DpanelCONSTR ( options ) {
   }
 
   this.switchYRotation =  function ( ) {
+
     var pol = 1;
 
     if ( (this.o.rotation.y + Math.PI) >= 2*Math.PI ) {
@@ -1611,7 +1594,7 @@ function mouseDown ( e ) {
 
   var action = "";
 
-  e.preventDefault();
+
 
   if (e.which == 1) {
 
@@ -1633,7 +1616,7 @@ function mouseDown ( e ) {
 
       if ( intersect.object.click == "inhibit" ) {
 
-        checkDragging( action, intersect.object );
+        checkDragging( action, intersect.object, e );
 
         break;
       }
@@ -1654,7 +1637,7 @@ function mouseDown ( e ) {
 //
 ///////////////////////////////////////////////////////////////////
 
-function checkDragging ( action, panel ) {
+function checkDragging ( action, panel, e ) {
 
   if (action.indexOf('leftClick') >= 0) {
 
@@ -1663,6 +1646,8 @@ function checkDragging ( action, panel ) {
 
     // IF IM ON DRAGABLE ELEMENT
     if ( elementMouseIsOver.className.indexOf("draggable") > -1 ) {
+
+      e.preventDefault();
 
       controls.enabled = false;
       mouse.dragging = true;
@@ -1673,11 +1658,21 @@ function checkDragging ( action, panel ) {
     // IF IM ON resizing ELEMENT
     if ( elementMouseIsOver.className.indexOf("resizer") > -1 ) {
 
+      e.preventDefault();
+
       controls.enabled = false;
       mouse.resizing = true;
       // console.log("drg");
       mouse.activePanel = panel.dad;
     }
+
+
+    // // IF IM ON resizing ELEMENT
+    // if ( elementMouseIsOver.className.indexOf("panel") > -1 ) {
+    //   debugger;
+    //   e.stopPropagation();
+    //
+    // }
   }
 
 }
@@ -1743,7 +1738,7 @@ function animate() {
   for (var i = 0; i < Panels.objects.length;i++ ) {
     const panel = Panels.objects[i];
     if (panel.updateSize) {
-      debugger;
+      // debugger;
       panel.setPlaneSizeToHTML();
     }
 

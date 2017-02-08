@@ -1,25 +1,28 @@
 
 // List of events to be attached to element.
 const events = {
+  // MediaPanel buttons
   ".imgInp" : { "event" : "change", "func" : function() { uploadData( this, "img") } },
   ".videoInp" : { "event" : "change", "func" : function() { uploadData( this, "vid" ) } },
   ".audioInp" : { "event" : "change", "func" : function() { uploadData( this, "aud" ) } },
   ".wwwInp" : { "event" : "click", "func" : function() { uploadData( this ) } },
-  ".textInp" : { "event" : "change", "func" : function() { uploadData( this ) } },
+  ".textInp" : { "event" : "click", "func" : function() { editPanelText( this ) } },
+  // Panel controls
   ".closeCross" : { "event" : "click", "func" : function() { closePanel( this ) } },
+  ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
   // DEBUG
 
   "#BTN1" : { "event" : "click", "func" : function() { Overlay.show(); } },
   "#BTN2" : { "event" : "click", "func" : function() { Overlay.hide(); } },
-  "#BTN3" : { "event" : "click", "func" : function() {  } },
-  ".resizeB" : { "event" : "click", "func" : function() { resizePanel(this) } },
+  "#BTN3" : { "event" : "click", "func" : function() {  } }
+  // ".resizeB" : { "event" : "click", "func" : function() { resizePanel(this) } },
 
 };
 
 for ( var key in events ) {
   if (!events.hasOwnProperty(key)) continue;
-  $(document).on( events[key].event, key, events[key].func );
+    $(document).on( events[key].event, key, events[key].func );
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -27,53 +30,57 @@ for ( var key in events ) {
 //
 ///////////////////////////////////////////////////////////////////
 
-function uploadData( input, type ) {
-  
-  if ( input.files ) {
+function uploadData( inputEl, type ) {
+
+  const panel3D = getMyPanel3D( inputEl );
+
+  if ( inputEl.files ) {
 
     var reader = new FileReader();
 
     if ( type == "img" ) {
 
-      if ( input.files.length == 1 ) {
+      if ( inputEl.files.length == 1 ) {
 
           reader.onload = function ( e ) {
-            createImage ( e, input );
+            createImage ( e, panel3D );
           }
         }
 
-        if ( input.files.length > 1 ) {
+        if ( inputEl.files.length > 1 ) {
 
           reader.onload = function ( e ) {
-            createGallery ( e, input );
+            createGallery ( e, panel3D );
           }
         }
     }
 
     if ( type == "vid" ) {
       reader.onload = function ( e ) {
-        createVideo ( e, input );
+        createVideo ( e, panel3D );
       }
     }
 
     if ( type == "aud" ) {
       reader.onload = function ( e ) {
-        createAudio ( e, input );
+        createAudio ( e, panel3D );
       }
     }
 
     reader.onloadend = function () {
-      const targetID = input.getAttribute( "targetID" );
-      Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
+      // const panelElement = getMyPanel3D( inputEl );
+      var panel = Panels.getByProp("uuid", panel3D.id);
+      panel.setPlaneSizeToHTML();
+
     }
 
-    reader.readAsDataURL( input.files[0] );
+    reader.readAsDataURL( inputEl.files[0] );
 
   }
 
 };
 
-function createImage ( e, element ) {
+function createImage ( e, panel3D ) {
 
 
   var img = document.createElement( 'img' );
@@ -82,12 +89,12 @@ function createImage ( e, element ) {
 
   img.className =  "mediaImg";
 
-  const panel3D = getMyPanel3D( element );
+  // const panel3D = getMyPanel3D( element );
   panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
 
 }
 
-function createVideo ( e, element ) {
+function createVideo ( e, panel3D ) {
 
   var video = document.createElement( "video" );
 
@@ -98,14 +105,14 @@ function createVideo ( e, element ) {
 
 
 
-  const panel3D = getMyPanel3D( element );
+  // const panel3D = getMyPanel3D( element );
   var mediaTarget = panel3D.getElementsByClassName( "mediaTarget" )[0];
-  mediaTarget.style.width = "";
-  mediaTarget.style.height = "";
+  // mediaTarget.style.width = "";
+  // mediaTarget.style.height = "";
   mediaTarget.innerHTML = video.outerHTML;
 }
 
-function createAudio ( e, element ) {
+function createAudio ( e, panel3D ) {
 
   var audio = document.createElement( "audio" );
   // const targetID = input.getAttribute( "targetID" );
@@ -115,7 +122,7 @@ function createAudio ( e, element ) {
 
   audio.className =  "mediaImg";
 
-  const panel3D = getMyPanel3D( element );
+  // const panel3D = getMyPanel3D( element );
   panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = audio.outerHTML;
 
   // Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
@@ -124,6 +131,24 @@ function createAudio ( e, element ) {
 
 function createGallery () {
 
+}
+
+function editPanelText( element ) {
+  console.log("pini");
+    const htmlPanel = getMyPanel3D( element );
+    const mediaTarget = htmlPanel.getElementsByClassName( "mediaTarget" )[0];
+    var textArea = document.createElement("textarea");
+    textArea.innerHTML = "TEST PINI";
+    if (htmlPanel.getElementsByClassName("textField")[0]){
+     var previouseText = htmlPanel.getElementsByClassName("textField")[0].textContent;
+    }
+
+    mediaTarget.innerHTML = textArea.outerHTML;
+    // textArea.focus();
+
+    var panel = Panels.getByProp("uuid", htmlPanel.id);
+    panel.setPlaneSizeToHTML();
+    // mediaTarget.querySelector("textarea").focus();
 }
 
 
@@ -199,8 +224,18 @@ function checkFileType() {
 
 }
 
+function showInOverlay ( element ) {
+  const panel = getMyPanel3D(element);
+  const media = panel.getElementsByClassName("mediaTarget")[0];
+  console.log(media);
+  Overlay.show();
+  Overlay.pushHtml(media);
+}
+
 function getMyPanel3D ( element ) {
+
   const parents = $( element ).parents();
+
   for (var i = 0; i < parents.length; i++ ) {
     if ( parents[i]["className"] == "panel3D" ) {
        return parents[i];
