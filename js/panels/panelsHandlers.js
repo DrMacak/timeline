@@ -7,8 +7,12 @@ const events = {
   ".audioInp" : { "event" : "change", "func" : function() { uploadData( this, "aud" ) } },
   ".wwwInp" : { "event" : "click", "func" : function() { uploadData( this ) } },
   ".textInp" : { "event" : "click", "func" : function() { editPanelText( this ) } },
+  "textarea" : { "event" : "keydown", "func" : function( e ) { saveText( this, e ) } },
+  "p" : { "event" : "click", "func" : function( ) { editText( this ) } },
+
   // Panel controls
   ".closeCross" : { "event" : "click", "func" : function() { closePanel( this ) } },
+  ".hideOverlay" : { "event" : "click", "func" : function() { Overlay.hide() } },
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
   // DEBUG
@@ -16,7 +20,7 @@ const events = {
   "#BTN1" : { "event" : "click", "func" : function() { Overlay.show(); } },
   "#BTN2" : { "event" : "click", "func" : function() { Overlay.hide(); } },
   "#BTN3" : { "event" : "click", "func" : function() {  } }
-  // ".resizeB" : { "event" : "click", "func" : function() { resizePanel(this) } },
+  // ".resizeB" : { "event" : "click", "func" : function() { resizePanelOfElement(this) } },
 
 };
 
@@ -34,6 +38,8 @@ function uploadData( inputEl, type ) {
 
   const panel3D = getMyPanel3D( inputEl );
 
+  var formData = new FormData();
+
   if ( inputEl.files ) {
 
     var reader = new FileReader();
@@ -41,6 +47,21 @@ function uploadData( inputEl, type ) {
     if ( type == "img" ) {
 
       if ( inputEl.files.length == 1 ) {
+
+          formData.append('uploads[]', inputEl.files[0], inputEl.files[0].name);
+
+              $.ajax({
+                url: 'http://13.81.213.87/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(data){
+                  console.log(data);
+                }
+              });
+
+
 
           reader.onload = function ( e ) {
             createImage ( e, panel3D );
@@ -74,8 +95,12 @@ function uploadData( inputEl, type ) {
 
     }
 
-    reader.readAsDataURL( inputEl.files[0] );
+    if ( inputEl.files.length == 1) {
+      reader.readAsDataURL( inputEl.files[0] );
+    } else {
+      // reader.readAsDataURL( inputEl.files[0] );
 
+    }
   }
 
 };
@@ -149,6 +174,31 @@ function editPanelText( element ) {
     var panel = Panels.getByProp("uuid", htmlPanel.id);
     panel.setPlaneSizeToHTML();
     // mediaTarget.querySelector("textarea").focus();
+}
+
+function saveText ( element, e ) {
+  var key = e.which || e.keyCode;
+  // 13 == Enter
+  if (key === 13) {
+
+    // Have to rush resize since the element will be overwritten soon.
+    resizePanelOfElement( element );
+
+    var p = document.createElement("p");
+    p.innerHTML = element.value;
+    element.outerHTML = p.outerHTML;
+    // console.log(pEl);
+
+  }
+}
+
+function editText( element ) {
+  console.log("Pyni");
+  resizePanelOfElement( element );
+
+    var textAreaElement = document.createElement("textarea");
+  textAreaElement.innerHTML  = element.innerHTML;
+  element.outerHTML = textAreaElement.outerHTML;
 }
 
 
@@ -246,8 +296,8 @@ function getMyPanel3D ( element ) {
 
 // DEBUG
 
-function resizePanel ( element ) {
+function resizePanelOfElement ( element ) {
   Panels.getByProp("uuid", getMyPanel3D(element).id).setPlaneSizeToHTML();
-  console.log("pini");
+  // console.log("pini");
 
 }

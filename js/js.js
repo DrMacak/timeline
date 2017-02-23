@@ -58,8 +58,8 @@ SegCurve.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
 
   var Tpi = Tl*(Math.PI*2)*this.o.helix.rotations;
 
-  var tx = Math.cos( Tpi ) * radius,
-      ty = Math.sin( Tpi ) * radius,
+  var tx = Math.sin( Tpi ) * radius,
+      ty = Math.cos( Tpi ) * radius,
       tz = this.o.helix.height * Tl + _zOffset;
 
   return new THREE.Vector3( tx, ty, tz );
@@ -1419,9 +1419,9 @@ function init( birthDate ){
       NEAR,
       viewDistance);
 
-  camera.position.z = 200;
-  camera.position.x = 200;
-  camera.position.y = -2000;
+  camera.position.z = Helix.height/2;
+  camera.position.x = 3000;
+  camera.position.y = 0;
 
   scene.background = new THREE.Color( 0xFFFF00 );
   scene.add(camera);
@@ -1513,12 +1513,14 @@ function init( birthDate ){
 
   // Controls
   controls = new THREE.TrackballControls( camera );
-  controls.target.set( 0, 0, 0 );
+  controls.target.set( 0, 0, Helix.height/2 );
   controls.rotateSpeed = 4;
   controls.zoomSpeed = 0.1;
   controls.panSpeed = 0.4;
   controls.noZoom = false;
   controls.addEventListener( 'change', render );
+
+  // camera.rotation.x = Math.PI/2;
 
   // cube.rotateX(90);
   // axes
@@ -1566,13 +1568,17 @@ function init( birthDate ){
   document.addEventListener( 'keydown', function (e) {
     var key = e.which || e.keyCode;
     if (key === 27) {
+      if (Overlay.visible) {
+        Overlay.hide();
+        return;
+      }
       Panels.removeLastPanel();
     }
 
-    if (key === 106) {
-      Panels.removeLastPanel();
-
-    }
+    // if (key === 106) {
+    //   Panels.removeLastPanel();
+    //
+    // }
   }, false );
 
 
