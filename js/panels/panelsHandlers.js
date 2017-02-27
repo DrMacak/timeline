@@ -10,17 +10,18 @@ const events = {
   "textarea" : { "event" : "keydown", "func" : function( e ) { saveText( this, e ) } },
   "p" : { "event" : "click", "func" : function( ) { editText( this ) } },
 
+
   // Panel controls
   ".closeCross" : { "event" : "click", "func" : function() { closePanel( this ) } },
   ".hideOverlay" : { "event" : "click", "func" : function() { Overlay.hide() } },
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
-  // DEBUG
 
+  // DEBUG
   "#BTN1" : { "event" : "click", "func" : function() { Overlay.show(); } },
   "#BTN2" : { "event" : "click", "func" : function() { Overlay.hide(); } },
   "#BTN3" : { "event" : "click", "func" : function() {  } }
-  // ".resizeB" : { "event" : "click", "func" : function() { resizePanelOfElement(this) } },
+  // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
 };
 
@@ -36,121 +37,129 @@ for ( var key in events ) {
 
 function uploadData( inputEl, type ) {
 
-  const panel3D = getMyPanel3D( inputEl );
+  // setting for storage link
+  const src = "http://13.81.213.87/uploads/";
+  const upUrl = "http://13.81.213.87/upload";
 
-  var formData = new FormData();
+  if ( !inputEl.files ) { return; }
 
-  if ( inputEl.files ) {
+    const panel3D = getMyPanel3D( inputEl );
+
+    var formData = new FormData();
 
     var reader = new FileReader();
 
-    if ( type == "img" ) {
+    for (var i = 0; i < inputEl.files.length; i++) {
+      formData.append('uploads[]', inputEl.files[i], inputEl.files[i].name);
+    }
 
-      if ( inputEl.files.length == 1 ) {
+    // Closure to get needed data into AJAX
+    var wrapper = function ( src, type, panel3D ) {
 
-          formData.append('uploads[]', inputEl.files[0], inputEl.files[0].name);
+      return function setMediaElement( names ) {
 
-              $.ajax({
-                url: 'http://13.81.213.87/upload',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(data){
-                  console.log(data);
-                }
-              });
+            if ( type == "img" ) {
+              createImage ( panel3D, src, names );
+            }
 
+            if ( type == "vid" ) {
+                createVideo ( panel3D, src, names );
+            }
 
-
-          reader.onload = function ( e ) {
-            createImage ( e, panel3D );
-          }
-        }
-
-        if ( inputEl.files.length > 1 ) {
-
-          reader.onload = function ( e ) {
-            createGallery ( e, panel3D );
-          }
+            if ( type == "aud" ) {
+                createAudio ( panel3D, src, names );
+            }
         }
     }
 
-    if ( type == "vid" ) {
-      reader.onload = function ( e ) {
-        createVideo ( e, panel3D );
-      }
-    }
-
-    if ( type == "aud" ) {
-      reader.onload = function ( e ) {
-        createAudio ( e, panel3D );
-      }
-    }
-
-    reader.onloadend = function () {
-      // const panelElement = getMyPanel3D( inputEl );
-      var panel = Panels.getByProp("uuid", panel3D.id);
-      panel.setPlaneSizeToHTML();
-
-    }
-
-    if ( inputEl.files.length == 1) {
-      reader.readAsDataURL( inputEl.files[0] );
-    } else {
-      // reader.readAsDataURL( inputEl.files[0] );
-
-    }
-  }
-
-};
-
-function createImage ( e, panel3D ) {
-
-
-  var img = document.createElement( 'img' );
-  img.setAttribute( "src", e.target.result );
-
-
-  img.className =  "mediaImg";
-
-  // const panel3D = getMyPanel3D( element );
-  panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
+  $.ajax({
+      url: upUrl,
+      type: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: wrapper( src, type, panel3D )
+      ,
+      xhr: function( panel3D ) {
+        // create an XMLHttpRequest
+        var xhr = new XMLHttpRequest();
+        // listen to the 'progress' event
+        xhr.upload.addEventListener( 'progress', function(evt) {
+          if ( evt.lengthComputable ) {
+            var percentComplete = evt.loaded / evt.total;
+            percentComplete = parseInt( percentComplete * 100 );
+            console.log( "pini" );
+            $( '.progress-bar' ).width( percentComplete + '%' );
+          }
+        } , false);
+      return xhr; }
+  });
 
 }
 
-function createVideo ( e, panel3D ) {
+function createImage ( panel3D, src ,names ) {
+
+  var img = document.createElement( 'img' );
+  img.setAttribute( "src", src + names );
+
+  img.className =  "mediaImg";
+
+  panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
+
+  fitPanelOfElement(panel3D);
+  // var panel = Panels.getByProp("uuid", panel3D.id);
+  // panel.setPlaneSizeToHTML();
+
+}
+
+// function createImage ( e, panel3D ) {
+//
+//
+//   var img = document.createElement( 'img' );
+//   img.setAttribute( "src", e.target.result );
+//
+//
+//   img.className =  "mediaImg";
+//
+//   // const panel3D = getMyPanel3D( element );
+//   panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
+//
+// }
+
+function createVideo ( panel3D, src, names ) {
 
   var video = document.createElement( "video" );
 
-  video.setAttribute( "src", e.target.result );
+  video.setAttribute( "src", src + names );
   video.setAttribute( "controls", "true");
 
   video.className =  "mediaImg";
 
-
-
-  // const panel3D = getMyPanel3D( element );
   var mediaTarget = panel3D.getElementsByClassName( "mediaTarget" )[0];
   // mediaTarget.style.width = "";
   // mediaTarget.style.height = "";
   mediaTarget.innerHTML = video.outerHTML;
+
+  // var panel = Panels.getByProp("uuid", panel3D.id);
+  // panel.setPlaneSizeToHTML();
+
+  fitPanelOfElement(panel3D);
 }
 
-function createAudio ( e, panel3D ) {
+function createAudio ( panel3D, src, names ) {
 
   var audio = document.createElement( "audio" );
-  // const targetID = input.getAttribute( "targetID" );
-  audio.setAttribute( "src", e.target.result );
+
+  audio.setAttribute( "src", src + names );
   audio.setAttribute( "controls", "true");
-  console.log(e);
 
   audio.className =  "mediaImg";
 
-  // const panel3D = getMyPanel3D( element );
   panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = audio.outerHTML;
 
-  // Panels.getByProp("uuid", targetID).setPlaneSizeToHTML();
+  // var panel = Panels.getByProp("uuid", panel3D.id);
+  // panel.setPlaneSizeToHTML();
+  fitPanelOfElement(panel3D);
 
 }
 
@@ -163,10 +172,11 @@ function editPanelText( element ) {
     const htmlPanel = getMyPanel3D( element );
     const mediaTarget = htmlPanel.getElementsByClassName( "mediaTarget" )[0];
     var textArea = document.createElement("textarea");
-    textArea.innerHTML = "TEST PINI";
-    if (htmlPanel.getElementsByClassName("textField")[0]){
-     var previouseText = htmlPanel.getElementsByClassName("textField")[0].textContent;
-    }
+    textArea.innerHTML = "Enter your text";
+    //
+    // if (htmlPanel.getElementsByClassName("textField")[0]){
+    //  var previouseText = htmlPanel.getElementsByClassName("textField")[0].textContent;
+    // }
 
     mediaTarget.innerHTML = textArea.outerHTML;
     // textArea.focus();
@@ -182,7 +192,7 @@ function saveText ( element, e ) {
   if (key === 13) {
 
     // Have to rush resize since the element will be overwritten soon.
-    resizePanelOfElement( element );
+    fitPanelOfElement( element );
 
     var p = document.createElement("p");
     p.innerHTML = element.value;
@@ -193,12 +203,13 @@ function saveText ( element, e ) {
 }
 
 function editText( element ) {
-  console.log("Pyni");
-  resizePanelOfElement( element );
 
-    var textAreaElement = document.createElement("textarea");
+  fitPanelOfElement( element );
+
+  var textAreaElement = document.createElement("textarea");
   textAreaElement.innerHTML  = element.innerHTML;
   element.outerHTML = textAreaElement.outerHTML;
+
 }
 
 
@@ -282,7 +293,15 @@ function showInOverlay ( element ) {
   Overlay.pushHtml(media);
 }
 
+function fitPanelOfElement ( element ) {
+  Panels.getByProp("uuid", getMyPanel3D(element).id).setPlaneSizeToHTML();
+}
+
 function getMyPanel3D ( element ) {
+
+  if( element.className.indexOf("panel3D") > - 1) {
+    return element;
+  }
 
   const parents = $( element ).parents();
 
@@ -291,13 +310,6 @@ function getMyPanel3D ( element ) {
        return parents[i];
     }
   }
+
   console.error("This element does not have Panel3D parent.");
-}
-
-// DEBUG
-
-function resizePanelOfElement ( element ) {
-  Panels.getByProp("uuid", getMyPanel3D(element).id).setPlaneSizeToHTML();
-  // console.log("pini");
-
 }
