@@ -18,7 +18,7 @@ var debug = false;
 
 // This should be globals
 // Birth date, its begining of Timeline to now
-var birthDateINP = new Date("03 24 2013");
+var birthDateINP = new Date("03 24 2010");
 
 // List of segments. Segments are by default years and part before birth and after present.
 // Plus user selected time segments, these are stored in user or backend storage
@@ -281,6 +281,7 @@ function Helix (scene, segmentConst, birthDate) {
     this.bottomCap = false,
     this.topCap = false,
     this.helix = undefined
+
   }
 
   this.segmentBuffer = {
@@ -317,6 +318,9 @@ function Helix (scene, segmentConst, birthDate) {
 
   // When slope is inited its too much because its ms of time so it should be reduced.
   this.heightReduce = 100000000/2;
+
+  this.init();
+
   }
 
   Helix.prototype = {
@@ -608,7 +612,7 @@ function Helix (scene, segmentConst, birthDate) {
 //
 ///////////////////////////////////////////////////////////////////
 
-function The3DpanelCONSTR ( options ) {
+function Panel ( options ) {
 
   // var self = this;
 
@@ -623,13 +627,16 @@ function The3DpanelCONSTR ( options ) {
 
   this.mathPlane = new THREE.Plane();
 
+  this._width = 0;
+  this._height = 0;
+
   this.create3dPanel();
 
 }
 
-The3DpanelCONSTR.prototype = {
+Panel.prototype = {
 
-  constructor : The3DpanelCONSTR,
+  constructor : Panel,
 
   // Creates 3D panel that means CSS3D based on template name, 3D plane, line and ring on segment.
   create3dPanel : function() {
@@ -905,21 +912,36 @@ The3DpanelCONSTR.prototype = {
     },
 
   // Set size of Plane to match the size of html panel. This has to be called after the html is rendered otherwise it sets 0,0
-  updateSize : 0,
+  _updateSize : 0,
 
   setPlaneSizeToHTML : function () {
 
-    if (!this.updateSize) {
-      this.updateSize = 100;
+    if (!this._updateSize) {
+      this._updateSize = 100;
       return;
     }
 
     this.o.html.style.width = "";
     this.o.html.style.height = "";
 
-    this.setSize( this.o.html.offsetWidth+1, this.o.html.offsetHeight+1 );
+    this.setExcentricSize( this.o.html.offsetWidth+1, this.o.html.offsetHeight+1 );
+    this._width = this.o.html.offsetWidth+1;
+    this._height = this.o.html.offsetHeight+1;
 
-    this.updateSize--;
+    this._updateSize--;
+  },
+
+  // Offsets the panel so its enlarged in direction from center of Helix.
+  // means less probability to go thru helix when img loaded.
+  setExcentricSize : function ( w, h ) {
+
+    if ( this.o.width != w || this.o.height != h ) {
+
+      this.moveOffset( (this.o.width-w) / -2 , (this.o.height-h) / 2 );
+      this.setSize( w, h);
+
+    }
+
   },
 
   // sets size of 3D plane and also CSS element.
@@ -931,6 +953,11 @@ The3DpanelCONSTR.prototype = {
 
       this.o.html.style.width = w;
       this.o.html.style.height = h;
+
+      // var pol = 1;
+      // if ( this.o.rotation.y == Helix.getAngle ( this.o.panelPosition ) ) { pol = -1 };
+
+      // this.moveOffset( (this.o.width-w) / -2 , (this.o.height-h) / 2 );
 
       this.o.width = w;
       this.o.height = h;
@@ -1145,17 +1172,22 @@ resizeToNewCorner : function ( point ) {
     // Check if the panel is mirrored or not.
     if ( this.o.rotation.y == Helix.getAngle ( this.o.panelPosition ) ) { pol = -1 };
 
-    const newWidth = this.o.width - dOffsets.dX * pol;
-    const newHeight = this.o.height - dOffsets.dY;
+    this._width = this._width - dOffsets.dX * pol;
+    this._height = this._height - dOffsets.dY;
 
+    if ( this._width > sizeLimit && this._height > sizeLimit ) {
 
-    if ( newWidth > sizeLimit && newHeight > sizeLimit ) {
-      // console.log("movin");
+      const ratioDimensions = this.respectRatio( this._width, this._height );
+
+      const rdOffsetdX = ( this.o.width - ratioDimensions.W ) * pol;
+      const rdOffsetdY = this.o.height - ratioDimensions.H;
+
       // Set new size
-      this.setSize ( newWidth, newHeight );
+      this.setSize ( ratioDimensions.W, ratioDimensions.H );
+
 
       // Move offset by half of delta.
-      this.moveOffset( dOffsets.dX/2 , dOffsets.dY/2 );
+      this.moveOffset( rdOffsetdX / 2 , rdOffsetdY /2 );
 
     }
 
@@ -1169,6 +1201,23 @@ resizeToNewCorner : function ( point ) {
   this._vectorBuffer.shift(this._vectorBuffer.vA);
 
   return;
+},
+
+respectRatio : function ( newWidth, newHeight ) {
+
+  const ratio = this.o.width  / this.o.height;
+  const newRatio = newWidth / newHeight;
+  // debugger;
+
+  console.log(newWidth+" newW");
+
+  if ( newRatio > ratio ) {
+    return { W : newWidth, H : newWidth / ratio };
+  } else {
+    return { W : newHeight * ratio , H : newHeight };
+  }
+
+  return { W : newWidth , H : newHeight }
 }
 
 }
@@ -1232,6 +1281,7 @@ ObjectsListCONSTR.prototype = {
     infoLog("Removing object:");
     infoLog(object);
 
+
     var index = this.objects.indexOf( object );
 
     this.scene3d.remove( object.plane );
@@ -1239,6 +1289,12 @@ ObjectsListCONSTR.prototype = {
     this.scene3d.remove( object.ring );
 
     this.css3dScene.remove( object.css3d );
+
+    // Send delete request to backend so we dont need to store it.
+    // if ( object.o.html.getElementsByClassName("mediaImg")[0] ) {
+    //   const mediaPath = object.o.html.getElementsByClassName("mediaImg")[0].getAttribute("src");
+    //   nodeJS.removeData( mediaPath.substr( mediaPath.lastIndexOf("/")+1 ) );
+    // }
 
     this.objects.splice( index, 1 );
 
@@ -1412,15 +1468,17 @@ function init( birthDate ){
   scene = new THREE.Scene();
   cssScene = new THREE.Scene();
 
-  Panels = new ObjectsListCONSTR(scene, cssScene, The3DpanelCONSTR);
+  Panels = new ObjectsListCONSTR(scene, cssScene, Panel);
 
   Helix = new Helix(scene, Segment, birthDate);
 
-  Helix.init();
+  // Helix.init();
   Helix.genDefaultSegments();
 
   Overlay = new Overlay("Overlay");
   Overlay.hide();
+
+  nodeJS = new NodeJS();
 
   // console.log(Panels);
 
@@ -1617,8 +1675,6 @@ function mouseDown ( e ) {
 
   var action = "";
 
-
-
   if (e.which == 1) {
 
     action = "leftClick";
@@ -1760,7 +1816,7 @@ function animate() {
   // debugger;
   for (var i = 0; i < Panels.objects.length;i++ ) {
     const panel = Panels.objects[i];
-    if (panel.updateSize) {
+    if (panel._updateSize) {
       // debugger;
       panel.setPlaneSizeToHTML();
     }
