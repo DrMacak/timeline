@@ -1291,10 +1291,10 @@ ObjectsListCONSTR.prototype = {
     this.css3dScene.remove( object.css3d );
 
     // Send delete request to backend so we dont need to store it.
-    // if ( object.o.html.getElementsByClassName("mediaImg")[0] ) {
-    //   const mediaPath = object.o.html.getElementsByClassName("mediaImg")[0].getAttribute("src");
-    //   nodeJS.removeData( mediaPath.substr( mediaPath.lastIndexOf("/")+1 ) );
-    // }
+    if ( object.o.html.getElementsByClassName("mediaImg")[0] ) {
+      const mediaPath = object.o.html.getElementsByClassName("mediaImg")[0].getAttribute("src");
+      nodeJS.removeData( mediaPath.substr( mediaPath.lastIndexOf("/")+1 ) );
+    }
 
     this.objects.splice( index, 1 );
 

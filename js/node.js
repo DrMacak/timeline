@@ -2,7 +2,20 @@ function NodeJS ( url ) {
   this.url = url || "http://13.81.213.87/";
   this.dataFolder = "uploads/";
   this.upRoute = "upload";
+  this.loginRoute = "login";
   this.delRoute = "remove/";
+
+  this.test();
+}
+
+NodeJS.prototype.test = function( ) {
+  $.get(this.url, function ( data ) {
+    if (data = "Timelix BackEND") {
+      console.log("Backend is OK");
+    } else {
+      console.error("Backend connection doesn't work");
+    }
+  });
 }
 
 NodeJS.prototype.uploadData = function ( inputEl, type ) {
@@ -82,6 +95,37 @@ NodeJS.prototype.removeData = function ( fileName ) {
     })
     .fail( function() {
       console.error("Removing file "+ fileName +" from "+ url +" failed!");
+    });
+
+}
+
+NodeJS.prototype.sendLogin = function ( form ) {
+
+  const url = this.url + this.loginRoute;
+
+  const username = form.getElementsByClassName("inputUserName")[0].value;
+  const pwd = form.getElementsByClassName("inputPassword")[0].value;
+
+  const payLoad =  {
+    name : username,
+    pwd : pwd
+  };
+
+  $.ajax({
+      url: url,
+      type: 'POST',
+      data: JSON.stringify( payLoad ),
+      processData: false,
+      contentType: "application/json; charset=utf-8",
+    })
+
+    .done( function( data ) {
+      // if usercreated or user logged.
+      
+    })
+
+    .fail( function() {
+      console.error("Connection to "+ url +" failed!");
     });
 
 }

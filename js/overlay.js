@@ -1,7 +1,19 @@
 function Overlay ( elementId ) {
   this.el = document.getElementById( elementId );
-  this.content = this.el.getElementsByClassName( "overlayContent" )[0];
+  // this.content = this.el.getElementsByClassName( "overlayContent" )[0];
   this.visible = false;
+
+  this.init();
+  this.login();
+}
+
+Overlay.prototype.init = function () {
+  this.el.innerHTML = templatesG["overlay"];
+  this.content = this.el.getElementsByClassName( "overlayContent" )[0];
+}
+
+Overlay.prototype.login = function () {
+  this.content.innerHTML = templatesG["login"];
 }
 
 Overlay.prototype.show = function () {
