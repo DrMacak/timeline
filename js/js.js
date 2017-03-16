@@ -7,7 +7,7 @@ var raycaster, currentIntersected, donutMesh;
 var INTERSECTED;
 var mouse = new THREE.Vector2();
 
-var pause = false;
+var pauseRaycaster = false;
 var updatePanels = false;
 
 
@@ -1475,10 +1475,6 @@ function init( birthDate ){
   // Helix.init();
   Helix.genDefaultSegments();
 
-  Overlay = new Overlay("Overlay");
-  Overlay.hide();
-
-  nodeJS = new NodeJS();
 
   // console.log(Panels);
 
@@ -1498,6 +1494,21 @@ function init( birthDate ){
   camera.position.x = 3000;
   camera.position.y = 0;
 
+  // Controls
+  controls = new THREE.TrackballControls( camera );
+  controls.target.set( 0, 0, Helix.height/2 );
+  controls.rotateSpeed = 4;
+  controls.zoomSpeed = 0.1;
+  controls.panSpeed = 0.4;
+  controls.noZoom = false;
+  controls.addEventListener( 'change', render );
+
+  overlay = new Overlay("Overlay");
+  overlay.purgeHide();
+
+  nodeJS = new NodeJS();
+
+  // camera.rotation.x = Math.PI/2;
   scene.background = new THREE.Color( 0xFFFF00 );
   scene.add(camera);
 
@@ -1586,16 +1597,6 @@ function init( birthDate ){
 
   // var planeMesh = addPanelToScene(scene);
 
-  // Controls
-  controls = new THREE.TrackballControls( camera );
-  controls.target.set( 0, 0, Helix.height/2 );
-  controls.rotateSpeed = 4;
-  controls.zoomSpeed = 0.1;
-  controls.panSpeed = 0.4;
-  controls.noZoom = false;
-  controls.addEventListener( 'change', render );
-
-  // camera.rotation.x = Math.PI/2;
 
   // cube.rotateX(90);
   // axes
@@ -1643,8 +1644,8 @@ function init( birthDate ){
   document.addEventListener( 'keydown', function (e) {
     var key = e.which || e.keyCode;
     if (key === 27) {
-      if (Overlay.visible) {
-        Overlay.hide();
+      if (overlay.visible) {
+        overlay.purgeHide();
         return;
       }
       Panels.removeLastPanel();
@@ -1829,10 +1830,11 @@ function animate() {
   //
   //  }, 10000 / 30 );
   //
-  if ( !pause ) {
+  // if ( !pauseRaycaster ) {
     controls.update();
-    render();
-  }
+  // }
+
+  render();
 
   requestAnimationFrame( animate );
 }
@@ -1856,6 +1858,7 @@ updatePanels = false;
 
 function render() {
 
+  if ( !pauseRaycaster ) {
 
   var action = "mouseover";
 
@@ -1900,7 +1903,9 @@ function render() {
 
       }
 
-}
+    }
+
+  }
 
   // var timer = Date.now() * 0.0001;
   // tubeMesh.rotation.z = timer * 2.5;

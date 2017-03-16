@@ -17,6 +17,11 @@
   padding: 50px 150px 50px 150px;
 }
 
+.overlayHeader {
+  text-align: center;
+  font-size: 25px;
+}
+
 #CornerGUI {
   position: absolute;
   top: 0;

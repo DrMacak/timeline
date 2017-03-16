@@ -3,6 +3,7 @@ function NodeJS ( url ) {
   this.dataFolder = "uploads/";
   this.filesRoute = "api/uploads/";
   this.loginRoute = "login";
+  this.createUserRoute = "createUser";
   this.delRoute = "api/remove/";
 
   this.token = {
@@ -12,23 +13,21 @@ function NodeJS ( url ) {
     tail : ""
   }
 
-  // this.test();
   this.init();
 }
 
-// }
-
 NodeJS.prototype.init = function( ) {
 
-  if (!window.localStorage) { console.error("Browser doesnt support LocalStorage!"); };
+  if (!window.localStorage) { console.error("Browser doesnt support LocalStorage!"); return;};
 
   this.test();
 
-  this.loadToken();
-
+  if ( !this.loadToken() ) {
+    overlay.login();
+    overlay.show();
+  };
 
 }
-
 
 NodeJS.prototype.test = function( ) {
   $.get(this.url, function ( data ) {
@@ -39,6 +38,98 @@ NodeJS.prototype.test = function( ) {
     }
   });
 }
+
+NodeJS.prototype.sendLogin = function ( form ) {
+
+  console.dir(form);
+  console.log($(form).serialize());
+
+  const url = this.url + this.loginRoute;
+
+  const username = form.getElementsByClassName("inputUserName")[0].value;
+  const pwd = form.getElementsByClassName("inputPassword")[0].value;
+
+  const payLoad =  {
+    name : username,
+    pwd : pwd
+  };
+
+  var doneWrap = function ( self ) {
+
+    return function ( data ) {
+      self.saveToken( data.token );
+      console.log("Token initialized");
+      // if usercreated or user logged.
+    }
+
+  }
+
+  $.ajax({
+      url: url,
+      type: 'POST',
+      data: JSON.stringify( payLoad ),
+      processData: false,
+      contentType: "application/json; charset=utf-8",
+      statusCode: {
+                    401: function() {
+                      console.log( "Login is incorrect" );
+                      overlay.setHeader("User not found, do you wish to create new one?")
+                      overlay.loginShowCreateBtn();
+                    }
+                  }
+
+    })
+
+    .done( doneWrap( this ) );
+}
+
+NodeJS.prototype.createAccount = function ( form ) {
+
+  const url = this.url + this.createUserRoute;
+
+  const username = form.getElementsByClassName("inputUserName")[0].value;
+  const pwd = form.getElementsByClassName("inputPassword")[0].value;
+
+  const payLoad =  {
+    name : username,
+    pwd : pwd
+  };
+
+  var doneWrap = function ( self ) {
+
+    return function ( data ) {
+      self.saveToken( data.token );
+      console.log("Token initialized");
+      // if usercreated or user logged.
+    }
+
+  }
+
+  $.ajax({
+      url: url,
+      type: 'POST',
+      data: JSON.stringify( payLoad ),
+      processData: false,
+      contentType: "application/json; charset=utf-8",
+      statusCode: {
+                    409: function() {
+                      console.log( "Name is already taken" );
+                      overlay.setHeader("Choose different name.");
+                    }
+                  }
+
+    })
+
+    .done( doneWrap( this ) )
+
+    .fail( function() {
+      console.error("Connection to "+ url +" failed!");
+    });
+
+}
+
+
+
 
 NodeJS.prototype.uploadData = function ( inputEl, type ) {
   // setting for storage link
@@ -120,25 +211,25 @@ NodeJS.prototype.removeData = function ( fileName ) {
   const url = this.url + this.delRoute;
 
 
-    $.ajax({
-      url: url,
-      type: 'DELETE',
-      // data: JSON.stringify( url + fileName ),
-      processData: false,
-      headers: { "x-access-token": this.token.raw },
-      contentType: "application/json; charset=utf-8"
-      // beforeSend: function( request ) {
-      //   request.setRequestHeader("x-access-token", this.token.raw);
-      // }
-    })
-    .done( function( data ) {
-      console.log("File successfuly deleted.");
+  $.ajax({
+    url: url,
+    type: 'DELETE',
+    // data: JSON.stringify( url + fileName ),
+    processData: false,
+    headers: { "x-access-token": this.token.raw },
+    contentType: "application/json; charset=utf-8"
+    // beforeSend: function( request ) {
+    //   request.setRequestHeader("x-access-token", this.token.raw);
+    // }
+  })
+  .done( function( data ) {
+    console.log("File successfuly deleted.");
 
-    })
+  })
 
-    .fail( function() {
-      console.error("Removing file "+ fileName +" from "+ url +" failed!");
-    });
+  .fail( function() {
+    console.error("Removing file "+ fileName +" from "+ url +" failed!");
+  });
 
   // $.post( url + fileName, function( data ) {
   //     console.log("File successfuly deleted.");
@@ -146,45 +237,6 @@ NodeJS.prototype.removeData = function ( fileName ) {
   //   .fail( function() {
   //     console.error("Removing file "+ fileName +" from "+ url +" failed!");
   //   });
-
-}
-
-NodeJS.prototype.sendLogin = function ( form ) {
-
-  const url = this.url + this.loginRoute;
-
-  const username = form.getElementsByClassName("inputUserName")[0].value;
-  const pwd = form.getElementsByClassName("inputPassword")[0].value;
-
-  const payLoad =  {
-    name : username,
-    pwd : pwd
-  };
-
-  var doneWrap = function ( self ) {
-
-    return function ( data ) {
-      self.saveToken( data.token );
-      console.log("Token initialized");
-      // if usercreated or user logged.
-    }
-
-  }
-
-  $.ajax({
-      url: url,
-      type: 'POST',
-      data: JSON.stringify( payLoad ),
-      processData: false,
-      contentType: "application/json; charset=utf-8"
-
-    })
-
-    .done( doneWrap( this ) )
-
-    .fail( function() {
-      console.error("Connection to "+ url +" failed!");
-    });
 
 }
 
@@ -196,10 +248,13 @@ NodeJS.prototype.saveToken = function( rawToken ) {
 
   const parsedToken = this.parseToken ( rawToken );
 
+  if( !parsedToken ) { return false; }
+
   this.token.header = parsedToken.header;
   this.token.body = parsedToken.body;
   this.token.tail = parsedToken.tail;
 
+  return true;
 }
 
 // Recieves raw token from backend and parse it.
@@ -213,8 +268,16 @@ NodeJS.prototype.parseToken = function( rawToken ) {
 
   const tail = rawToken.substr( _bodyEnd + 1 );
 
-  const header = JSON.parse(this.base64Decode(_rawHeader));
-  const body =  JSON.parse(this.base64Decode(_rawBody));
+  try {
+    JSON.parse( this.base64Decode(_rawHeader) );
+    JSON.parse( this.base64Decode(_rawBody) );
+  } catch ( e ) {
+    console.error("Token is corrupted");
+    return undefined;
+  }
+
+  const header = JSON.parse( this.base64Decode(_rawHeader) );
+  const body =  JSON.parse( this.base64Decode(_rawBody) );
 
   return { header: header, body: body, tail: tail }
 }
@@ -224,27 +287,43 @@ NodeJS.prototype.loadToken = function ()  {
 
   const rawToken = localStorage.getItem('token');
 
-  if ( !rawToken ) { console.log("None token stored. Please login to get new token."); return; }
+  if ( !rawToken ) { console.log("None token stored. Please login to get new token."); return false; }
 
   var token = this.parseToken( rawToken );
+
+  if ( !token ) { console.log("Token is corrupted. Please login to get new token."); return false;  }
 
   var now = new Date();
   var exp = new Date(token.body.exp * 1000);
 
-  if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return; }
+  if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return false; }
 
   console.log("Token is valid. Saving to memory.");
 
-  this.saveToken( rawToken );
-
+ return this.saveToken( rawToken );
 }
 
-// NodeJS.prototype.saveToken = function ( token ) {
-//   this.token.raw =  token;
-//   // this.token.header =
-//   // this.token.tail =
-//
-// }
+NodeJS.prototype.isTokenValid = function ()  {
+
+  const rawToken = localStorage.getItem('token');
+
+  if ( !rawToken ) { console.log("None token stored. Please login to get new token."); return false; }
+
+  var token = this.parseToken( rawToken );
+
+  if ( !token ) { console.log("Token is corrupted. Please login to get new token."); return false; }
+
+  var now = new Date();
+  var exp = new Date( token.body.exp * 1000 );
+
+  if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return false; }
+
+  console.log("Token is valid. Saving to memory.");
+
+ return this.saveToken( rawToken );
+}
+
+
 
 NodeJS.prototype.base64Decode = function ( base64str ) {
 
@@ -265,8 +344,8 @@ NodeJS.prototype.base64Decode = function ( base64str ) {
 
     binStr += bin;
   }
-
-  for (var i = 0, len = binStr.length; i < len; i += 8) {
+  // i+8 Protection from missing padding =
+  for (var i = 0, len = binStr.length; i + 8 <= len; i += 8) {
 
     var charCode = parseInt( binStr.substr( i, 8 ), 2 );
     baseStr += String.fromCharCode( charCode );

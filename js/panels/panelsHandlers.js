@@ -13,15 +13,16 @@ const events = {
 
   // Panel controls
   ".closeCross" : { "event" : "click", "func" : function() { closePanel( this ) } },
-  ".hideOverlay" : { "event" : "click", "func" : function() { Overlay.hide() } },
+  ".hideOverlay" : { "event" : "click", "func" : function() { overlay.hide() } },
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
-  // Login screen in Overlay
-  "#loginForm" : { "event" : "submit", "func" : function() { nodeJS.sendLogin( this ); return false; } },
+  // Login screen in overlay
+  "#loginBtn" : { "event" : "click", "func" : function() { nodeJS.sendLogin( this.parentElement ); return false; } },
+  "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false; } },
 
   // DEBUG
-  "#BTN1" : { "event" : "click", "func" : function() { Overlay.show(); } },
-  "#BTN2" : { "event" : "click", "func" : function() { Overlay.hide(); } },
+  "#BTN1" : { "event" : "click", "func" : function() { overlay.login(); overlay.show(); } },
+  "#BTN2" : { "event" : "click", "func" : function() { overlay.hide(); } },
   "#BTN3" : { "event" : "click", "func" : function() {  } }
   // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
@@ -221,8 +222,8 @@ function showInOverlay ( element ) {
   const panel = getMyPanel3D(element);
   const media = panel.getElementsByClassName("mediaTarget")[0];
   console.log(media);
-  Overlay.show();
-  Overlay.pushHtml(media);
+  overlay.show();
+  overlay.pushHtml(media);
 }
 
 function fitPanelOfElement ( element ) {
