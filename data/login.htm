@@ -8,15 +8,15 @@
            <p id="profile-name" class="profile-name-card"></p>
            <form id="loginForm" class="form-signin"  >
                <span id="reauth-email" class="reauth-email"></span>
-               <input type="username" name="username" id="inputUserName" class="form-control inputUserName" placeholder="User Name" required autofocus>
-               <input type="password" name="password" id="inputPassword" class="form-control inputPassword" placeholder="Password" required>
+               <input type="text" name="username" id="username" class="form-control inputUserName" placeholder="User Name" required autofocus>
+               <input type="password" name="password" id="password" class="form-control inputPassword" placeholder="Password" required>
                <div id="remember" class="checkbox">
                    <label>
                        <input type="checkbox" value="remember-me"> Remember me
                    </label>
                </div>
-               <button name="loginBtn" id="loginBtn"  class = "btn btn-lg btn-primary btn-block btn-signin">Log in</button>
-               <button name="createUserBtn" id="createUserBtn" class = "btn btn-lg btn-primary btn-block btn-create">Create Account</button>
+               <button name="loginBtn" type="submit" id="loginBtn"  class = "btn btn-lg btn-primary btn-block btn-signin">Log in</button>
+               <button name="createUserBtn" type="submit" id="createUserBtn" class = "btn btn-lg btn-primary btn-block btn-create">Create Account</button>
            </form><!-- /form -->
            <a href="#" class="forgot-password">
                Forgot the password?

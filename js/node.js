@@ -2,9 +2,11 @@ function NodeJS ( url ) {
   this.url = url || "http://13.81.213.87/";
   this.dataFolder = "uploads/";
   this.filesRoute = "api/uploads/";
+  this.delRoute = "api/uploads/";
   this.loginRoute = "login";
   this.createUserRoute = "createUser";
-  this.delRoute = "api/remove/";
+
+  this.quedCallback = undefined;
 
   this.token = {
     raw : "",
@@ -18,9 +20,9 @@ function NodeJS ( url ) {
 
 NodeJS.prototype.init = function( ) {
 
-  if (!window.localStorage) { console.error("Browser doesnt support LocalStorage!"); return;};
+  if ( !window.localStorage ) { console.error("Browser doesnt support LocalStorage!"); return;};
 
-  this.test();
+  this.testConnection();
 
   if ( !this.loadToken() ) {
     overlay.login();
@@ -29,37 +31,69 @@ NodeJS.prototype.init = function( ) {
 
 }
 
-NodeJS.prototype.test = function( ) {
+NodeJS.prototype.isOK = function () {
+
+  // if ( !this.testConnection() ) { return false; };
+
+  if ( !this.isTokenValid() ) {
+    overlay.login();
+    overlay.setHeader("Your session expired");
+    overlay.show();
+    return false;
+  };
+
+  return true;
+}
+
+NodeJS.prototype.testConnection = function( ) {
   $.get(this.url, function ( data ) {
+
     if (data = "Timelix BackEND") {
-      console.log("Backend is OK");
+      console.log("Back-end is OK");
+      return true;
     } else {
-      console.error("Backend connection doesn't work");
+      console.error("Back-end connection doesn't work");
+      return false;
     }
   });
 }
 
-NodeJS.prototype.sendLogin = function ( form ) {
+NodeJS.prototype.sendLogin = function ( form, doneCallback ) {
 
-  console.dir(form);
-  console.log($(form).serialize());
+  // console.dir(form);
+  // console.log($(form).serialize());
 
   const url = this.url + this.loginRoute;
 
   const username = form.getElementsByClassName("inputUserName")[0].value;
   const pwd = form.getElementsByClassName("inputPassword")[0].value;
 
+  if ( username == "" || pwd == "" ) { overlay.setHeader("Username or password cannot be blank"); return false; }
+
   const payLoad =  {
     name : username,
     pwd : pwd
   };
 
-  var doneWrap = function ( self ) {
+  const doneWrap = function ( _this, _doneCallback ) {
 
     return function ( data ) {
-      self.saveToken( data.token );
-      console.log("Token initialized");
-      // if usercreated or user logged.
+      if ( _this.saveToken( data.token ) ) {
+
+        overlay.setHeader( "Welcome to Timelix " + _this.token.body.username );
+
+        if ( _this.quedCallback ) { _this.quedCallback(); }
+
+        setTimeout(function() {
+          overlay.purgeHide();
+        }, 1000);
+
+        console.log("Token initialized");
+        return;
+      }
+
+      console.error("Cannot be logged, Token is not working.");
+      return;
     }
 
   }
@@ -70,6 +104,7 @@ NodeJS.prototype.sendLogin = function ( form ) {
       data: JSON.stringify( payLoad ),
       processData: false,
       contentType: "application/json; charset=utf-8",
+      success: doneWrap( this, doneCallback ),
       statusCode: {
                     401: function() {
                       console.log( "Login is incorrect" );
@@ -128,10 +163,19 @@ NodeJS.prototype.createAccount = function ( form ) {
 
 }
 
+NodeJS.prototype.uploadData = function ( _inputEl, _type ) {
+
+  var inputEl = _inputEl || inputEl;
+  var type = _type || inputEl;
 
 
 
-NodeJS.prototype.uploadData = function ( inputEl, type ) {
+  if ( !this.isOK() ) {
+    this.quedCallback = function ( inputEl, type ) { return this.uploadData( ) };
+    overlay.login();
+    return;
+  }
+
   // setting for storage link
   const src = this.url + this.dataFolder;
   const upSrc = this.url + this.filesRoute;
@@ -175,7 +219,7 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
 
     var tokenWrap = function ( self ) {
       return function ( request ) {
-        request.setRequestHeader("x-access-token", "self.token.raw");
+        request.setRequestHeader("Authorization", "self.token.raw");
       }
     }
 
@@ -208,19 +252,16 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
 
 NodeJS.prototype.removeData = function ( fileName ) {
 
-  const url = this.url + this.delRoute;
-
+  const url = this.url + this.delRoute + fileName;
 
   $.ajax({
     url: url,
     type: 'DELETE',
     // data: JSON.stringify( url + fileName ),
     processData: false,
-    headers: { "x-access-token": this.token.raw },
-    contentType: "application/json; charset=utf-8"
-    // beforeSend: function( request ) {
-    //   request.setRequestHeader("x-access-token", this.token.raw);
-    // }
+    headers: { "Authorization": this.token.raw }
+    // contentType: "application/json; charset=utf-8"
+
   })
   .done( function( data ) {
     console.log("File successfuly deleted.");
@@ -240,6 +281,27 @@ NodeJS.prototype.removeData = function ( fileName ) {
 
 }
 
+// Try to load token from local storage and eval if its not expired. If everything is alright save token.
+NodeJS.prototype.loadToken = function ()  {
+
+  const rawToken = localStorage.getItem('token');
+
+  if ( !rawToken ) { console.log("None token stored. Please login to get new token."); overlay.setHeader("Welcome, new user!"); return false; }
+
+  var token = this.parseToken( rawToken );
+
+  if ( !token ) { console.log("Token is corrupted. Please login to get new token."); return false; }
+
+  var now = new Date();
+  var exp = new Date( token.body.exp * 1000 );
+
+  if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return false; }
+
+  console.log("Token is valid. Saving to memory.");
+
+  return this.saveToken( rawToken );
+}
+
 // Recieves raw token from backend and parse it.
 NodeJS.prototype.saveToken = function( rawToken ) {
 
@@ -253,6 +315,20 @@ NodeJS.prototype.saveToken = function( rawToken ) {
   this.token.header = parsedToken.header;
   this.token.body = parsedToken.body;
   this.token.tail = parsedToken.tail;
+
+  return true;
+}
+
+NodeJS.prototype.isTokenValid = function ()  {
+
+  if ( this.token.raw == "" ) { console.error("Token not initialized."); return false; }
+
+  var now = new Date();
+  var exp = new Date(this.token.body.exp * 1000);
+
+  if ( exp < now ) { console.error("Your token expired. Please login to get new token."); return false; }
+
+  console.log("Token is valid.");
 
   return true;
 }
@@ -281,47 +357,25 @@ NodeJS.prototype.parseToken = function( rawToken ) {
 
   return { header: header, body: body, tail: tail }
 }
-
-// Try to load token from local storage and eval if its not expired. If everything is alright save token.
-NodeJS.prototype.loadToken = function ()  {
-
-  const rawToken = localStorage.getItem('token');
-
-  if ( !rawToken ) { console.log("None token stored. Please login to get new token."); return false; }
-
-  var token = this.parseToken( rawToken );
-
-  if ( !token ) { console.log("Token is corrupted. Please login to get new token."); return false;  }
-
-  var now = new Date();
-  var exp = new Date(token.body.exp * 1000);
-
-  if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return false; }
-
-  console.log("Token is valid. Saving to memory.");
-
- return this.saveToken( rawToken );
-}
-
-NodeJS.prototype.isTokenValid = function ()  {
-
-  const rawToken = localStorage.getItem('token');
-
-  if ( !rawToken ) { console.log("None token stored. Please login to get new token."); return false; }
-
-  var token = this.parseToken( rawToken );
-
-  if ( !token ) { console.log("Token is corrupted. Please login to get new token."); return false; }
-
-  var now = new Date();
-  var exp = new Date( token.body.exp * 1000 );
-
-  if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return false; }
-
-  console.log("Token is valid. Saving to memory.");
-
- return this.saveToken( rawToken );
-}
+// NodeJS.prototype.isTokenValid = function ()  {
+//
+//   const rawToken = localStorage.getItem('token');
+//
+//   if ( !rawToken ) { console.log("None token stored. Please login to get new token."); overlay.setHeader("Welcome, new user!"); return false; }
+//
+//   var token = this.parseToken( rawToken );
+//
+//   if ( !token ) { console.log("Token is corrupted. Please login to get new token."); return false; }
+//
+//   var now = new Date();
+//   var exp = new Date( token.body.exp * 1000 );
+//
+//   if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return false; }
+//
+//   console.log("Token is valid. Saving to memory.");
+//
+//  return this.saveToken( rawToken );
+// }
 
 
 

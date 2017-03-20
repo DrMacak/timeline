@@ -4,9 +4,9 @@ function Overlay ( elementId ) {
   this.content = undefined;
   this.visible = false;
   this.loginLoaded = false;
+  
 
   this.init();
-  this.login();
 }
 
 Overlay.prototype.init = function () {
@@ -16,24 +16,30 @@ Overlay.prototype.init = function () {
 }
 
 Overlay.prototype.show = function () {
-  this.el.style.visibility = "visible";
+  $(this.el).fadeIn("slow");
+  // this.el.style.visibility = "visible";
   this.visible = true;
   pauseRaycaster = true;
   controls.enabled = false;
   // To fully disable controls check also dragging/resizing.
+  // console.log("SHOW");
 }
 
 Overlay.prototype.hide = function () {
-  this.el.style.visibility = "hidden";
+  if ( this.visible ) {  $(this.el).fadeOut("slow"); }
+
+  // this.el.style.visibility = "hidden";
   this.visible = false;
   pauseRaycaster = false;
   controls.enabled = true;
+  // console.log("HIDE");
 
 }
 
 Overlay.prototype.purgeHide = function () {
   this.hide();
   this.clearHtml();
+  this.setHeader("");
 }
 
 Overlay.prototype.pushHtml = function ( html ) {
@@ -48,7 +54,18 @@ Overlay.prototype.clearHtml = function () {
 }
 
 Overlay.prototype.setHeader = function ( header ) {
-  this.header.innerHTML = header;
+  const fadingSpeed = 100;
+
+  var wrap = function ( self, header ) {
+    return function ( ) {
+      self.header.innerHTML = header;
+    }
+  }
+
+  $(this.header).fadeOut( fadingSpeed ,  wrap( this, header))
+
+  $(this.header).fadeIn( fadingSpeed );
+
 }
 
 Overlay.prototype.login = function () {

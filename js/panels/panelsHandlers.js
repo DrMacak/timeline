@@ -2,9 +2,9 @@
 // List of events to be attached to element.
 const events = {
   // MediaPanel buttons
-  ".imgInp" : { "event" : "change", "func" : function() { uploadData( this, "img") } },
-  ".videoInp" : { "event" : "change", "func" : function() { uploadData( this, "vid" ) } },
-  ".audioInp" : { "event" : "change", "func" : function() { uploadData( this, "aud" ) } },
+  ".imgInp" : { "event" : "change", "func" : function() { nodeJS.uploadData( this, "img")  } },
+  ".videoInp" : { "event" : "change", "func" : function() { nodeJS.uploadData( this, "vid" )  } },
+  ".audioInp" : { "event" : "change", "func" : function() { nodeJS.uploadData( this, "aud" )  } },
   ".wwwInp" : { "event" : "click", "func" : function() { uploadData( this ) } },
   ".textInp" : { "event" : "click", "func" : function() { editPanelText( this ) } },
   "textarea" : { "event" : "keydown", "func" : function( e ) { saveText( this, e ) } },
@@ -12,12 +12,12 @@ const events = {
 
 
   // Panel controls
-  ".closeCross" : { "event" : "click", "func" : function() { closePanel( this ) } },
+  ".closeCross" : { "event" : "click", "func" : function() { if ( nodeJS.isOK() ) { closePanel( this ) } } },
   ".hideOverlay" : { "event" : "click", "func" : function() { overlay.hide() } },
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
   // Login screen in overlay
-  "#loginBtn" : { "event" : "click", "func" : function() { nodeJS.sendLogin( this.parentElement ); return false; } },
+  "#loginBtn" : { "event" : "click", "func" : function() { nodeJS.sendLogin( this.parentElement, nodeJS.quedCallback ); return false; } },
   "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false; } },
 
   // DEBUG
@@ -38,11 +38,11 @@ for ( var key in events ) {
 //
 ///////////////////////////////////////////////////////////////////
 
-function uploadData( inputEl, type ) {
-
-  nodeJS.uploadData( inputEl, type );
-
-}
+// function uploadData( inputEl, type ) {
+//
+//   nodeJS.uploadData( inputEl, type );
+//
+// }
 
 function createImage ( panel3D, src ,names ) {
 

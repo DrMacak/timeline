@@ -1135,6 +1135,7 @@ Panel.prototype = {
       this.line.visible = true;
       this.ring.visible = true;
 
+      // $(this.o.html).fadeIn("slow");
       this.o.html.style.visibility = "visible";
 
     } else {
