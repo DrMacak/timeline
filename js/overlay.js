@@ -2,9 +2,9 @@ function Overlay ( elementId ) {
   this.el = document.getElementById( elementId );
   this.header = undefined;
   this.content = undefined;
-  this.visible = false;
+  this.visible = true;
   this.loginLoaded = false;
-  
+
 
   this.init();
 }
@@ -16,7 +16,9 @@ Overlay.prototype.init = function () {
 }
 
 Overlay.prototype.show = function () {
-  $(this.el).fadeIn("slow");
+
+  if ( !this.visible ) { $( this.el ).fadeIn("slow"); }
+  // console.log("SHOW Ovelay");
   // this.el.style.visibility = "visible";
   this.visible = true;
   pauseRaycaster = true;
@@ -26,13 +28,12 @@ Overlay.prototype.show = function () {
 }
 
 Overlay.prototype.hide = function () {
-  if ( this.visible ) {  $(this.el).fadeOut("slow"); }
 
-  // this.el.style.visibility = "hidden";
+  if ( this.visible ) {  $( this.el ).fadeOut(100); }
+
   this.visible = false;
   pauseRaycaster = false;
   controls.enabled = true;
-  // console.log("HIDE");
 
 }
 
@@ -40,6 +41,13 @@ Overlay.prototype.purgeHide = function () {
   this.hide();
   this.clearHtml();
   this.setHeader("");
+}
+
+Overlay.prototype.fastHide = function () {
+  this.el.style.visibility = "hidden";
+  this.visible = false;
+  pauseRaycaster = false;
+  controls.enabled = true;
 }
 
 Overlay.prototype.pushHtml = function ( html ) {

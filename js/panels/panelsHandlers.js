@@ -12,13 +12,13 @@ const events = {
 
 
   // Panel controls
-  ".closeCross" : { "event" : "click", "func" : function() { if ( nodeJS.isOK() ) { closePanel( this ) } } },
+  ".closeCross" : { "event" : "click", "func" : function() { deletePanel( this )  } },
   ".hideOverlay" : { "event" : "click", "func" : function() { overlay.hide() } },
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
   // Login screen in overlay
-  "#loginBtn" : { "event" : "click", "func" : function() { nodeJS.sendLogin( this.parentElement, nodeJS.quedCallback ); return false; } },
-  "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false; } },
+  "#loginBtn" : { "event" : "click", "func" : function() { nodeJS.sendLogin( this.parentElement ); return false;  } }, 
+  "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false;  } },
 
   // DEBUG
   "#BTN1" : { "event" : "click", "func" : function() { overlay.login(); overlay.show(); } },
@@ -54,7 +54,7 @@ function createImage ( panel3D, src ,names ) {
   panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
 
   fitPanelOfElement(panel3D);
-  // var panel = Panels.getByProp("uuid", panel3D.id);
+  // var panel = panels.getByProp("uuid", panel3D.id);
   // panel.setPlaneSizeToHTML();
 
 }
@@ -73,7 +73,7 @@ function createVideo ( panel3D, src, names ) {
   // mediaTarget.style.height = "";
   mediaTarget.innerHTML = video.outerHTML;
 
-  // var panel = Panels.getByProp("uuid", panel3D.id);
+  // var panel = panels.getByProp("uuid", panel3D.id);
   // panel.setPlaneSizeToHTML();
 
   fitPanelOfElement(panel3D);
@@ -90,7 +90,7 @@ function createAudio ( panel3D, src, names ) {
 
   panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = audio.outerHTML;
 
-  // var panel = Panels.getByProp("uuid", panel3D.id);
+  // var panel = panels.getByProp("uuid", panel3D.id);
   // panel.setPlaneSizeToHTML();
   fitPanelOfElement(panel3D);
 
@@ -102,7 +102,7 @@ function createGallery () {
 
 function editPanelText( element ) {
   console.log("pini");
-    const htmlPanel = getMyPanel3D( element );
+    const htmlPanel = getMyHtmlPanel( element );
     const mediaTarget = htmlPanel.getElementsByClassName( "mediaTarget" )[0];
     var textArea = document.createElement("textarea");
     textArea.innerHTML = "Enter your text";
@@ -114,7 +114,7 @@ function editPanelText( element ) {
     mediaTarget.innerHTML = textArea.outerHTML;
     // textArea.focus();
 
-    var panel = Panels.getByProp("uuid", htmlPanel.id);
+    var panel = panels.getByProp("uuid", htmlPanel.id);
     panel.setPlaneSizeToHTML();
     // mediaTarget.querySelector("textarea").focus();
 }
@@ -146,10 +146,28 @@ function editText( element ) {
 }
 
 
-function closePanel ( element ) {
-  const htmlPanel = getMyPanel3D( element );
-  const panel = Panels.getByProp( "uuid", htmlPanel.id );
-  Panels.removeObject( panel );
+function deletePanel ( element ) {
+
+  const panelHtml = getMyHtmlPanel( element );
+  const panel3D = panels.getByProp( "uuid", panelHtml.id );
+
+  // Send delete request to backend so we dont need to store it.
+  if ( panelHtml.getElementsByClassName("mediaImg")[0] ) {
+
+    const mediaPath = panelHtml.getElementsByClassName("mediaImg")[0].getAttribute("src");
+    const fileName = mediaPath.substr( mediaPath.lastIndexOf("/") + 1 );
+
+    // Deletes data from BE and after success removes panel.
+    nodeJS.removeData( fileName, panel3D );
+
+  } else {
+
+    console.log("Panel doesnt contain media. No need to call BE");
+    panels.removeObject( panel3D );
+
+  }
+
+
 
 }
 
@@ -165,15 +183,15 @@ function deleteObjectWRP ( uuids ) {
 
       Helix.removeSegment ( segment );
 
-      Panels.getByProp( "template", "mouseoverSegment" ).visible(false);
+      panels.getByProp( "template", "mouseoverSegment" ).visible(false);
 
     }
 
-    var panel = Panels.getByProp("uuid", uuid);
+    var panel = panels.getByProp("uuid", uuid);
 
     if ( panel !== undefined) {
 
-      Panels.removeObject( panel );
+      panels.removeObject( panel );
 
     }
   }
@@ -186,7 +204,7 @@ function startNewSegmentWRP ( T1, PanelUuid ) {
 
     Helix.segmentBuffer.T1 = parseFloat( T1 );
 
-    var panel = Panels.getByProp("uuid", PanelUuid);
+    var panel = panels.getByProp("uuid", PanelUuid);
 
     if ( panel !== undefined) {
 
@@ -219,7 +237,7 @@ function checkFileType() {
 }
 
 function showInOverlay ( element ) {
-  const panel = getMyPanel3D(element);
+  const panel = getMyHtmlPanel(element);
   const media = panel.getElementsByClassName("mediaTarget")[0];
   console.log(media);
   overlay.show();
@@ -227,10 +245,10 @@ function showInOverlay ( element ) {
 }
 
 function fitPanelOfElement ( element ) {
-  Panels.getByProp("uuid", getMyPanel3D(element).id).setPlaneSizeToHTML();
+  panels.getByProp("uuid", getMyHtmlPanel(element).id).setPlaneSizeToHTML();
 }
 
-function getMyPanel3D ( element ) {
+function getMyHtmlPanel ( element ) {
 
   if( element.className.indexOf("panel3D") > - 1) {
     return element;
@@ -244,5 +262,5 @@ function getMyPanel3D ( element ) {
     }
   }
 
-  console.error("This element does not have Panel3D parent.");
+  console.error("This element does not have HtmlPanel parent.");
 }

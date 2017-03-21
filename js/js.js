@@ -8,7 +8,7 @@ var INTERSECTED;
 var mouse = new THREE.Vector2();
 
 var pauseRaycaster = false;
-var updatePanels = false;
+var updatepanels = false;
 
 
 
@@ -25,7 +25,7 @@ var birthDateINP = new Date("03 24 2010");
 var Helix;
 
 // List of panels and other non-segment objects.
-var Panels;
+var panels;
 
 // HTML Overlay for showing galleries and fullscreenmode
 var Overlay;
@@ -54,13 +54,19 @@ SegCurve.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
   if ( pure ) { Tl = t }
 
   var radius = radiusOffset + this.o.helix.radius || this.o.helix.radius;
+
+
   var _zOffset = zOffset || 0;
 
-  var Tpi = Tl*(Math.PI*2)*this.o.helix.rotations;
+  var Tpi = Tl*(Math.PI*2) * this.o.helix.rotations;
 
-  var tx = Math.sin( Tpi ) * radius,
-      ty = Math.cos( Tpi ) * radius,
-      tz = this.o.helix.height * Tl + _zOffset;
+  var tz = this.o.helix.height * Tl + _zOffset;
+
+  // can create conus instead of helix
+  // radius += tz;
+
+  var tx = Math.sin( Tpi ) * radius;
+  var ty = Math.cos( Tpi ) * radius;
 
   return new THREE.Vector3( tx, ty, tz );
 }
@@ -97,6 +103,11 @@ function Segment ( options ) {
 Segment.prototype = {
 
   constructor: Segment,
+
+  // Returns options of object for BE saving.
+  getOptions : function () {
+    return { options : this.o }
+  },
 
   // TBD This should be possible to make smarter???
   getCenterFromSurface: function(mousePoint, radiusOffset, zOffset) {
@@ -267,9 +278,9 @@ Segment.prototype = {
 
 function Helix (scene, segmentConst, birthDate) {
 
-  var self = this;
+  // var self = this;
 
-  this.segmentOptionsCONSTR = function segOpts () {
+  this.SegmentOptions = function segOpts () {
     this.uuid = "",
     this.type = "Segment",
     this.T1 = 0,
@@ -310,13 +321,13 @@ function Helix (scene, segmentConst, birthDate) {
 
   // Whole HELIX
   this.birthDate = birthDate;
-  this.radius = 500;
   this.height = 0;
   this.rotation = 1;
   this.startDate = 0;
   this.endDate = 0;
 
   // When slope is inited its too much because its ms of time so it should be reduced.
+  this.radius = 500;
   this.heightReduce = 100000000/2;
 
   this.init();
@@ -332,11 +343,12 @@ function Helix (scene, segmentConst, birthDate) {
     const now = new Date();
     this.startDate = new Date("01 01 " + this.birthDate.getFullYear());
     this.endDate = new Date("12 31 " + now.getFullYear());
+    // height equals time in ms but its reduced not to be too high.
     this.height = (this.endDate - this.startDate) / this.heightReduce;
     this.rotations = now.getFullYear() - this.birthDate.getFullYear() + 1;
 
     // create shadow segments
-    // var shadowSegOpt = new segmentOptionsCONSTR();
+    // var shadowSegOpt = new SegmentOptions();
     // shadowSegOpt.T1 = this.segmentBuffer.T1;
     // shadowSegOpt.T2 = this.segmentBuffer.T2;
     // shadowSegOpt.opacity = 0.5;
@@ -346,6 +358,10 @@ function Helix (scene, segmentConst, birthDate) {
     //
     // this.segmentBuffer.shadowSegment = self.addSegmentToScene(shadowSegOpt);
 
+  },
+
+  getOptions : function ( ) {
+    return { radius : this.radius, heightReduce : this.heightReduce }
   },
 
   getByProp : function ( prop, value) {
@@ -474,7 +490,7 @@ function Helix (scene, segmentConst, birthDate) {
 
     for (var i = 0; i < interuptions.length - 1; i++) {
 
-      var newOpts = new this.segmentOptionsCONSTR();
+      var newOpts = new this.SegmentOptions();
 
       newOpts.T1 = this.getTFromTime( interuptions[i] );
       newOpts.T2 = this.getTFromTime( interuptions[i+1] );
@@ -520,7 +536,7 @@ function Helix (scene, segmentConst, birthDate) {
     var startSegment = this.segments[startSeg];
     var endSegment = this.segments[endSeg];
 
-    var pushedSegOpt = new this.segmentOptionsCONSTR();
+    var pushedSegOpt = new this.SegmentOptions();
     pushedSegOpt.helix = this;
     pushedSegOpt.click = "pushed";
     pushedSegOpt.color = Math.random() * 0xffffff;
@@ -637,6 +653,10 @@ function Panel ( options ) {
 Panel.prototype = {
 
   constructor : Panel,
+
+  getOptions : function () {
+    return { options : this.o }
+  },
 
   // Creates 3D panel that means CSS3D based on template name, 3D plane, line and ring on segment.
   create3dPanel : function() {
@@ -1020,7 +1040,7 @@ Panel.prototype = {
   // Gets two points and return X and Y delta offsets.
   getDeltaOffsets : function ( A, B ) {
 
-    const vectorLen = A.distanceTo(B);
+    const vectorLen = A.distanceTo( B );
 
     const dYOffset = A.z - B.z;
 
@@ -1089,11 +1109,12 @@ Panel.prototype = {
 
   },
 
+  // Detects if panel is correctly mirrored towards camera. And corrects it.
   switchYRotation : function ( ) {
 
     var pol = 1;
 
-    if ( (this.o.rotation.y + Math.PI) >= 2*Math.PI ) {
+    if ( ( this.o.rotation.y + Math.PI ) >= 2*Math.PI ) {
       pol = -1;
     }
 
@@ -1122,7 +1143,7 @@ Panel.prototype = {
 
   },
 
-    // Sets all components of 3D Panel visibility
+  // Sets all components of 3D Panel visibility
   visible : function ( visible ) {
 
     if ( visible ) {
@@ -1135,7 +1156,6 @@ Panel.prototype = {
       this.line.visible = true;
       this.ring.visible = true;
 
-      // $(this.o.html).fadeIn("slow");
       this.o.html.style.visibility = "visible";
 
     } else {
@@ -1224,11 +1244,11 @@ respectRatio : function ( newWidth, newHeight ) {
 }
 
 ///////////////////////////////////////////////////////////////////
-// LIST OF PANELS CONSTR
+// LIST OF panels CONSTR
 //
 ///////////////////////////////////////////////////////////////////
 
-function ObjectsListCONSTR(scene, cssScene, panelConst) {
+function Panels(scene, cssScene, panelConst) {
 
   // var self = this;
 
@@ -1237,7 +1257,7 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
 
   this.panelConstructor = panelConst;
 
-  this.objectOptionsCONST = function () {
+  this.PanelOptions = function () {
     this.uuid = "",
     this.template = "default",
     this.width = 10,
@@ -1260,9 +1280,9 @@ function ObjectsListCONSTR(scene, cssScene, panelConst) {
   this.objects = [];
 }
 
-ObjectsListCONSTR.prototype = {
+Panels.prototype = {
 
-  constructor : ObjectsListCONSTR,
+  constructor : Panels,
 
   getByProp : function ( prop, value ) {
     infoLog("Looking for prop: "+prop+ " val: "+ value + " in Objects");
@@ -1282,7 +1302,6 @@ ObjectsListCONSTR.prototype = {
     infoLog("Removing object:");
     infoLog(object);
 
-
     var index = this.objects.indexOf( object );
 
     this.scene3d.remove( object.plane );
@@ -1290,12 +1309,6 @@ ObjectsListCONSTR.prototype = {
     this.scene3d.remove( object.ring );
 
     this.css3dScene.remove( object.css3d );
-
-    // Send delete request to backend so we dont need to store it.
-    if ( object.o.html.getElementsByClassName("mediaImg")[0] ) {
-      const mediaPath = object.o.html.getElementsByClassName("mediaImg")[0].getAttribute("src");
-      nodeJS.removeData( mediaPath.substr( mediaPath.lastIndexOf("/")+1 ) );
-    }
 
     this.objects.splice( index, 1 );
 
@@ -1341,7 +1354,7 @@ ObjectsListCONSTR.prototype = {
 
     // PANEL NOT FOUND CREATING NEW
 
-    var newOpts = new this.objectOptionsCONST ();
+    var newOpts = new this.PanelOptions ();
 
     newOpts.buddy = onObject;
 
@@ -1446,6 +1459,7 @@ function init( birthDate ){
 // PROTO
   // mouse = new THREE.Vector2();
 
+  // TBD clean this up.
   mouse.dragging = false;
   mouse.resizing = false;
 
@@ -1469,15 +1483,11 @@ function init( birthDate ){
   scene = new THREE.Scene();
   cssScene = new THREE.Scene();
 
-  Panels = new ObjectsListCONSTR(scene, cssScene, Panel);
+  panels = new Panels(scene, cssScene, Panel);
 
   Helix = new Helix(scene, Segment, birthDate);
 
-  // Helix.init();
   Helix.genDefaultSegments();
-
-
-  // console.log(Panels);
 
   // set some camera attributes
   var VIEW_ANGLE = 45,
@@ -1505,7 +1515,7 @@ function init( birthDate ){
   controls.addEventListener( 'change', render );
 
   overlay = new Overlay("Overlay");
-  overlay.purgeHide();
+  // overlay.fastHide();
 
   nodeJS = new NodeJS();
 
@@ -1649,11 +1659,11 @@ function init( birthDate ){
         overlay.purgeHide();
         return;
       }
-      Panels.removeLastPanel();
+      panels.removeLastPanel();
     }
 
     // if (key === 106) {
-    //   Panels.removeLastPanel();
+    //   panels.removeLastPanel();
     //
     // }
   }, false );
@@ -1747,7 +1757,6 @@ function checkDragging ( action, panel, e ) {
       mouse.activePanel = panel.dad;
     }
 
-
     // // IF IM ON resizing ELEMENT
     // if ( elementMouseIsOver.className.indexOf("panel") > -1 ) {
     //   debugger;
@@ -1771,14 +1780,12 @@ function doAction (action, onObject, mousePointer) {
   // RIGHT CLICK
   if (action.indexOf('rightClick') >= 0) {
 
-    var panel = Panels.placePanel( action, segment, mousePointer, true );
+    var panel = panels.placePanel( action, segment, mousePointer, true );
     panel.setPlaneSizeToHTML();
 
 
   // LEFT CLICK
   } else if ( action.indexOf('leftClick') >= 0 ) {
-
-
 
     var centerPoint = segment.getCenterFromSurface(mousePointer);
 
@@ -1798,7 +1805,7 @@ function doAction (action, onObject, mousePointer) {
       Helix.pushSegment();
     } else {
 
-      var panel = Panels.placePanel( action, segment, mousePointer, false );
+      var panel = panels.placePanel( action, segment, mousePointer, false );
       panel.setPlaneSizeToHTML();
     }
 
@@ -1816,10 +1823,11 @@ function doAction (action, onObject, mousePointer) {
 function animate() {
 
   // debugger;
-  for (var i = 0; i < Panels.objects.length;i++ ) {
-    const panel = Panels.objects[i];
-    if (panel._updateSize) {
-      // debugger;
+  for (var i = 0; i < panels.objects.length;i++ ) {
+
+    const panel = panels.objects[i];
+
+    if ( panel._updateSize ) {
       panel.setPlaneSizeToHTML();
     }
 
@@ -1840,16 +1848,16 @@ function animate() {
   requestAnimationFrame( animate );
 }
 
-function updatePanelSizes () {
-
-  for (var i = 0; i < Panels.objects.length;i++ ) {
-    const panel = Panels.objects[i];
-    panel.setPlaneSizeToHTML();
-  }
-
-updatePanels = false;
-
-}
+// function updatepanelsizes () {
+//
+//   for (var i = 0; i < panels.objects.length;i++ ) {
+//     const panel = panels.objects[i];
+//     panel.setPlaneSizeToHTML();
+//   }
+//
+// updatepanels = false;
+//
+// }
 
 
 ///////////////////////////////////////////////////////////////////
@@ -1863,7 +1871,7 @@ function render() {
 
   var action = "mouseover";
 
-  Panels.faceTowardCamera();
+  panels.faceTowardCamera();
 
   raycaster.setFromCamera( mouse, camera );
 
@@ -1878,7 +1886,7 @@ function render() {
 
       if ( intersecObj.click == "inhibit" ) {
 
-        Panels.getByProp("template", "mouseoverSegment").visible(false);
+        panels.getByProp("template", "mouseoverSegment").visible(false);
 
         var panel = intersecObj.dad;
 
@@ -1892,7 +1900,7 @@ function render() {
         if ( segment.o.type == "Segment" ) {
 
           // Time Panel
-          var timePanel = Panels.placePanel( action, segment, intersects[ i ].point, true);
+          var timePanel = panels.placePanel( action, segment, intersects[ i ].point, true);
 
           // Segment preview
           // Helix.segmentBuffer.putT( Helix.getTFromZ( intersects[ 0 ].z) );
@@ -1925,7 +1933,7 @@ function updateRenderes () {
 }
 
 // when ready, start.
-$(document).ready(function() {
+$( document ).ready(function() {
 
   init( birthDateINP );
 
