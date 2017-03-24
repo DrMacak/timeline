@@ -29,7 +29,7 @@ Overlay.prototype.show = function () {
 
 Overlay.prototype.hide = function () {
 
-  if ( this.visible ) {  $( this.el ).fadeOut(100); }
+  if ( this.visible ) {  $( this.el ).fadeOut( 100 ); }
 
   this.visible = false;
   pauseRaycaster = false;
@@ -44,7 +44,7 @@ Overlay.prototype.purgeHide = function () {
 }
 
 Overlay.prototype.fastHide = function () {
-  this.el.style.visibility = "hidden";
+  this.el.style.display = "none";
   this.visible = false;
   pauseRaycaster = false;
   controls.enabled = true;

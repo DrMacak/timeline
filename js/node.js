@@ -223,18 +223,18 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
     // Closure to get needed data into AJAX
     var wrapper = function ( src, type, HtmlPanel ) {
 
-      return function setMediaElement( names ) {
+      return function setMediaElement( data ) {
 
             if ( type == "img" ) {
-              createImage ( HtmlPanel, src, names );
+              createImage ( HtmlPanel, src, data.message );
             }
 
             if ( type == "vid" ) {
-              createVideo ( HtmlPanel, src, names );
+              createVideo ( HtmlPanel, src, data.message );
             }
 
             if ( type == "aud" ) {
-              createAudio ( HtmlPanel, src, names );
+              createAudio ( HtmlPanel, src, data.message );
             }
         }
     }
@@ -319,6 +319,12 @@ NodeJS.prototype.removeData = function ( fileName, panel3D ) {
 
 }
 
+NodeJS.prototype.logOut = function ()  {
+  localStorage.removeItem('token');
+  this.token = null;
+}
+
+
 // Try to load token from local storage and eval if its not expired. If everything is alright save token.
 NodeJS.prototype.loadToken = function ()  {
 
@@ -387,6 +393,7 @@ NodeJS.prototype.parseToken = function( rawToken ) {
     JSON.parse( this.base64Decode(_rawBody) );
   } catch ( e ) {
     console.error("Token is corrupted");
+    console.error(e);
     return undefined;
   }
 
@@ -417,7 +424,7 @@ NodeJS.prototype.parseToken = function( rawToken ) {
 
 
 
-NodeJS.prototype.base64Decode = function ( base64str ) {
+NodeJS.prototype.base64DecodeOLD = function ( base64str ) {
 
   var base64Arr = base64str.split("");
   var binStr = "";
@@ -445,4 +452,33 @@ NodeJS.prototype.base64Decode = function ( base64str ) {
   }
 
  return baseStr;
+}
+
+NodeJS.prototype.base64Decode = function ( base64Str ) {
+
+var Base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+var buffer = new ArrayBuffer( ( base64Str.length * 6 ) / 8 );
+var charNum = new Uint8Array( buffer );
+
+var output = "";
+
+for (var i = 0; i < charNum.length; i++) {
+
+	var quotient = Math.floor(i / 3);
+  var mod = i % 3;
+
+  var rightShift = 4 - 2 * mod;
+	var leftShift = 6 - rightShift;
+  var y = i + quotient;
+
+  if( base64Str[y+1] != "=" ) {
+ 	  charNum[i] = ( Base64.indexOf( base64Str[ y ] ) << leftShift ) |  ( Base64.indexOf( base64Str[ y + 1 ] ) >> rightShift );
+	}
+
+  output += String.fromCharCode(charNum[i]);
+  // console.log(output);
+}
+
+  return output;
 }
