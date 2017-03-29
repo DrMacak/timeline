@@ -3,10 +3,11 @@ function NodeJS ( url ) {
   this.dataFolder = "uploads/";
   this.filesRoute = "api/uploads/";
   this.delRoute = "api/uploads/";
+  this.dataRoute = "api/userdata/";
   this.loginRoute = "login";
   this.createUserRoute = "createUser";
 
-  this.quedCallback = undefined;
+  this.quedCallback = [];
 
   this.token = {
     raw : "",
@@ -86,10 +87,15 @@ NodeJS.prototype.sendLogin = function ( form ) {
 
         overlay.setHeader( "Welcome to Timelix " + _this.token.body.username );
 
-        if ( _this.quedCallback ) {
-          _this.quedCallback();
-          _this.quedCallback = undefined;
-          // return;
+        if ( _this.quedCallback.length != 0 ) {
+
+          for (var i = 0; i < _this.quedCallback.length; i++ ) {
+            _this.quedCallback[i]();
+
+          }
+
+          _this.quedCallback = [];
+
         }
 
         setTimeout(function() {
@@ -146,7 +152,15 @@ NodeJS.prototype.createAccount = function ( form ) {
 
           overlay.setHeader( "Welcome to Timelix " + _this.token.body.username );
 
-          if ( _this.quedCallback ) { _this.quedCallback(); }
+          if ( _this.quedCallback.length != 0 ) {
+
+            for (var i = 0; i < _this.quedCallback.length; i++ ) {
+              _this.quedCallback[i]();
+            }
+
+            _this.quedCallback = [];
+
+          }
 
           setTimeout(function() {
             overlay.purgeHide();
@@ -197,7 +211,7 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
   // In case token is not valid que this function call to quedCallback to fire it after successful login.
   // quedCallback is selfInvoked closure to store input data
   if ( !this.isTokenValid() ) {
-    this.quedCallback = ( function ( inputEl, type ) { return function () { this.uploadData(  inputEl, type ) } } )( inputEl, type );
+    this.quedCallback.push( ( function ( inputEl, type, _this ) { return function () { _this.uploadData(  inputEl, type ) } } )( inputEl, type, this ) );
     overlay.login();
     overlay.setHeader("Your session expired");
     overlay.show();
@@ -281,7 +295,7 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
 NodeJS.prototype.removeData = function ( fileName, panel3D ) {
 
   if ( !this.isTokenValid() ) {
-    this.quedCallback = ( function ( _fileName, _panel3D ) { return function () { this.removeData( _fileName, _panel3D ) } } )( fileName, panel3D );
+    this.quedCallback.push( ( function ( _fileName, _panel3D, _this ) { return function () { _this.removeData( _fileName, _panel3D ) } } )( fileName, panel3D, this ) );
     overlay.login();
     overlay.setHeader("Your session expired");
     overlay.show();
@@ -318,6 +332,35 @@ NodeJS.prototype.removeData = function ( fileName, panel3D ) {
   //   });
 
 }
+
+NodeJS.prototype.save = function ( data )  {
+
+  console.log(data);
+
+  const url = this.url + this.dataRoute;
+
+  $.ajax({
+    url: url,
+    type: 'POST',
+    data: JSON.stringify( data ),
+    processData: false,
+    headers: { "Authorization": this.token.raw },
+    contentType: "application/json; charset=utf-8"
+
+  })
+
+  .done( function( data ) {
+
+    console.log("Data uploaded successfuly" + data);
+
+  })
+
+  .fail( function() {
+    console.error("Data upload to "+ url +" failed!");
+  });
+
+}
+
 
 NodeJS.prototype.logOut = function ()  {
   localStorage.removeItem('token');
@@ -368,7 +411,7 @@ NodeJS.prototype.isTokenValid = function ()  {
   if ( this.token.raw == "" ) { console.error("Token not initialized."); return false; }
 
   var now = new Date();
-  var exp = new Date(this.token.body.exp * 1000);
+  var exp = new Date( this.token.body.exp * 1000 );
 
   if ( exp < now ) { console.error("Your token expired. Please login to get new token."); return false; }
 
@@ -402,57 +445,36 @@ NodeJS.prototype.parseToken = function( rawToken ) {
 
   return { header: header, body: body, tail: tail }
 }
-// NodeJS.prototype.isTokenValid = function ()  {
+
+// NodeJS.prototype.base64DecodeOLD = function ( base64str ) {
 //
-//   const rawToken = localStorage.getItem('token');
+//   var base64Arr = base64str.split("");
+//   var binStr = "";
+//   var baseStr = "";
+//   var Base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 //
-//   if ( !rawToken ) { console.log("None token stored. Please login to get new token."); overlay.setHeader("Welcome, new user!"); return false; }
+//   for (var i = 0; i < base64Arr.length; i++) {
 //
-//   var token = this.parseToken( rawToken );
+//     if ( base64Arr[i] == "=" ) { break; }
 //
-//   if ( !token ) { console.log("Token is corrupted. Please login to get new token."); return false; }
+//     var bin = Base64.indexOf( base64Arr[i] ).toString(2);
 //
-//   var now = new Date();
-//   var exp = new Date( token.body.exp * 1000 );
+//     for (var y = 0, len = bin.length; y < ( 6 - len ); y++) {
+//       bin = "0" + bin;
+//     }
 //
-//   if ( exp < now ) { console.log("Your token expired. Please login to get new token."); return false; }
+//     binStr += bin;
+//   }
+//   // i+8 Protection from missing padding =
+//   for (var i = 0, len = binStr.length; i + 8 <= len; i += 8) {
 //
-//   console.log("Token is valid. Saving to memory.");
+//     var charCode = parseInt( binStr.substr( i, 8 ), 2 );
+//     baseStr += String.fromCharCode( charCode );
 //
-//  return this.saveToken( rawToken );
+//   }
+//
+//  return baseStr;
 // }
-
-
-
-NodeJS.prototype.base64DecodeOLD = function ( base64str ) {
-
-  var base64Arr = base64str.split("");
-  var binStr = "";
-  var baseStr = "";
-  var Base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-  for (var i = 0; i < base64Arr.length; i++) {
-
-    if ( base64Arr[i] == "=" ) { break; }
-
-    var bin = Base64.indexOf( base64Arr[i] ).toString(2);
-
-    for (var y = 0, len = bin.length; y < ( 6 - len ); y++) {
-      bin = "0" + bin;
-    }
-
-    binStr += bin;
-  }
-  // i+8 Protection from missing padding =
-  for (var i = 0, len = binStr.length; i + 8 <= len; i += 8) {
-
-    var charCode = parseInt( binStr.substr( i, 8 ), 2 );
-    baseStr += String.fromCharCode( charCode );
-
-  }
-
- return baseStr;
-}
 
 NodeJS.prototype.base64Decode = function ( base64Str ) {
 
@@ -465,19 +487,18 @@ var output = "";
 
 for (var i = 0; i < charNum.length; i++) {
 
-	var quotient = Math.floor(i / 3);
+	var quotient = Math.floor( i / 3 );
   var mod = i % 3;
 
   var rightShift = 4 - 2 * mod;
 	var leftShift = 6 - rightShift;
   var y = i + quotient;
 
-  if( base64Str[y+1] != "=" ) {
+  if( base64Str[ y + 1 ] != "=" ) {
  	  charNum[i] = ( Base64.indexOf( base64Str[ y ] ) << leftShift ) |  ( Base64.indexOf( base64Str[ y + 1 ] ) >> rightShift );
 	}
 
   output += String.fromCharCode(charNum[i]);
-  // console.log(output);
 }
 
   return output;

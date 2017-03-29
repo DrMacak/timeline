@@ -17,13 +17,13 @@ const events = {
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
   // Login screen in overlay
-  "#loginBtn" : { "event" : "click", "func" : function() { nodeJS.sendLogin( this.parentElement ); return false;  } }, 
+  "#loginBtn" : { "event" : "click", "func" : function() { nodeJS.sendLogin( this.parentElement ); return false;  } },
   "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false;  } },
 
   // DEBUG
   "#BTN1" : { "event" : "click", "func" : function() { overlay.login(); overlay.show(); } },
   "#BTN2" : { "event" : "click", "func" : function() { overlay.hide(); } },
-  "#BTN3" : { "event" : "click", "func" : function() {  } }
+  "#BTN3" : { "event" : "click", "func" : function() { savePanels() } }
   // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
 };
@@ -43,6 +43,20 @@ for ( var key in events ) {
 //   nodeJS.uploadData( inputEl, type );
 //
 // }
+
+// { panels: [ { uuid: 1324, o: options }, .. ] };
+
+function savePanels () {
+  var data = [];
+
+  for (var i=0, len = panels.objects.length; i < len; i++ ) {
+    var options = panels.objects[i]["getOptions"]();
+    data.push({ uuid : options.uuid, o : options });
+  }
+
+  // return { panels: data };
+  nodeJS.save({ panels: data });
+}
 
 function createImage ( panel3D, src ,names ) {
 

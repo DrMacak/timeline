@@ -650,12 +650,36 @@ function Panel ( options ) {
 
 }
 
+// this.uuid = "",
+// this.template = "default",
+// this.width = 10,
+// this.height = 10,
+// this.centerPosition = new THREE.Vector3(0, 0, 0),
+// this.offsetX = 200,
+// this.offsetY = 150,
+// this.panelPosition = new THREE.Vector3(0, 0, 0),
+// this.rotation = new THREE.Vector3(Math.PI/2, 0, 0),
+// this.visible = true,
+// this.justRing = false,
+// this.buddy = undefined,
+// this.html = undefined
+
 Panel.prototype = {
 
   constructor : Panel,
 
   getOptions : function () {
-    return { options : this.o }
+
+    var exportOptions = Object.assign({}, this.o);
+
+    // converts all complex objects to data neccessary for reconstruction.
+    exportOptions.buddy = "";
+    exportOptions.centerPosition = { x: this.o.centerPosition.x, y: this.o.centerPosition.y, z:this.o.centerPosition.z };
+    exportOptions.panelPosition = { x: this.o.panelPosition.x, y: this.o.panelPosition.y, z:this.o.panelPosition.z };
+    exportOptions.rotation = { x: this.o.rotation.x, y: this.o.rotation.y, z:this.o.rotation.z };
+    exportOptions.html = this.o.html.innerHTML;
+
+    return exportOptions;
   },
 
   // Creates 3D panel that means CSS3D based on template name, 3D plane, line and ring on segment.
@@ -670,7 +694,7 @@ Panel.prototype = {
 
     this._setMathPlane();
 
-    this.o.html = this.setTemplateElements();
+    this.o.html = this.o.html || this.setTemplateElements();
 
     // debugLog(this.o.html);
 
@@ -698,6 +722,8 @@ Panel.prototype = {
 
      const geometry = new THREE.RoundedSquare( this.o.width, this.o.height );
      var mesh = new THREE.Mesh( geometry, material );
+
+     mesh.uuid = this.o.uuid || mesh.uuid;
 
      mesh.position.copy( this.o.panelPosition );
      mesh.rotation.x = this.o.rotation.x;
@@ -1297,6 +1323,16 @@ Panels.prototype = {
     return undefined;
   },
 
+  unzipOptions : function ( zippedO ) {
+
+    zippedO.centerPosition = new THREE.Vector3 ( zippedO.centerPosition.x, zippedO.centerPosition.y, zippedO.centerPosition.z );
+    zippedO.panelPosition = new THREE.Vector3 ( zippedO.panelPosition.x, v.panelPosition.y, zippedO.panelPosition.z );
+    zippedO.rotation = new THREE.Vector3 ( zippedO.rotation.x, zippedO.rotation.y, zippedO.rotation.z );
+    zippedO.buddy = "";
+
+   return zippedO;
+ },
+
   removeObject : function ( object ) {
 
     infoLog("Removing object:");
@@ -1401,6 +1437,8 @@ Panels.prototype = {
 
     return newPanel;
   },
+
+
 
 // Removing last panel
 removeLastPanel : function ( ) {
