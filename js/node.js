@@ -333,7 +333,7 @@ NodeJS.prototype.removeData = function ( fileName, panel3D ) {
 
 }
 
-NodeJS.prototype.save = function ( data )  {
+NodeJS.prototype.saveData = function ( data )  {
 
   console.log(data);
 
@@ -361,6 +361,33 @@ NodeJS.prototype.save = function ( data )  {
 
 }
 
+// Load data from BE. You can choose which kind of data to load.
+// Panels, segments, helix
+NodeJS.prototype.loadData = function ( type )  {
+
+  const url = this.url + this.dataRoute + type;
+
+  $.ajax({
+    url: url,
+    type: 'GET',
+    // data: JSON.stringify( data ),
+    processData: false,
+    headers: { "Authorization": this.token.raw }
+    // contentType: "application/json; charset=utf-8"
+
+  })
+
+  .done( function( data ) {
+    loadPanels( data );
+    console.log("Data recieved successfuly" + data);
+
+  })
+
+  .fail( function() {
+    console.error("Data loading from "+ url +" failed!");
+  });
+
+}
 
 NodeJS.prototype.logOut = function ()  {
   localStorage.removeItem('token');
@@ -448,32 +475,32 @@ NodeJS.prototype.parseToken = function( rawToken ) {
 
 // NodeJS.prototype.base64DecodeOLD = function ( base64str ) {
 //
-//   var base64Arr = base64str.split("");
-//   var binStr = "";
-//   var baseStr = "";
-//   var Base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-//
-//   for (var i = 0; i < base64Arr.length; i++) {
-//
-//     if ( base64Arr[i] == "=" ) { break; }
-//
-//     var bin = Base64.indexOf( base64Arr[i] ).toString(2);
-//
-//     for (var y = 0, len = bin.length; y < ( 6 - len ); y++) {
-//       bin = "0" + bin;
-//     }
-//
-//     binStr += bin;
-//   }
-//   // i+8 Protection from missing padding =
-//   for (var i = 0, len = binStr.length; i + 8 <= len; i += 8) {
-//
-//     var charCode = parseInt( binStr.substr( i, 8 ), 2 );
-//     baseStr += String.fromCharCode( charCode );
-//
-//   }
-//
-//  return baseStr;
+ //  var base64Arr = base64str.split("");
+ //  var binStr = "";
+ //  var baseStr = "";
+ //  var Base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+ //
+ //  for (var i = 0; i < base64Arr.length; i++) {
+ //
+ //    if ( base64Arr[i] == "=" ) { break; }
+ //
+ //    var bin = Base64.indexOf( base64Arr[i] ).toString(2);
+ //
+ //    for (var y = 0, len = bin.length; y < ( 6 - len ); y++) {
+ //      bin = "0" + bin;
+ //    }
+ //
+ //    binStr += bin;
+ //  }
+ //  // i+8 Protection from missing padding =
+ //  for (var i = 0, len = binStr.length; i + 8 <= len; i += 8) {
+ //
+ //    var charCode = parseInt( binStr.substr( i, 8 ), 2 );
+ //    baseStr += String.fromCharCode( charCode );
+ //
+ //  }
+ //
+ // return baseStr;
 // }
 
 NodeJS.prototype.base64Decode = function ( base64Str ) {
@@ -485,7 +512,7 @@ var charNum = new Uint8Array( buffer );
 
 var output = "";
 
-for (var i = 0; i < charNum.length; i++) {
+for ( var i = 0, len = charNum.length; i < len; i++ ) {
 
 	var quotient = Math.floor( i / 3 );
   var mod = i % 3;
@@ -498,7 +525,7 @@ for (var i = 0; i < charNum.length; i++) {
  	  charNum[i] = ( Base64.indexOf( base64Str[ y ] ) << leftShift ) |  ( Base64.indexOf( base64Str[ y + 1 ] ) >> rightShift );
 	}
 
-  output += String.fromCharCode(charNum[i]);
+  output += String.fromCharCode( charNum[i] );
 }
 
   return output;

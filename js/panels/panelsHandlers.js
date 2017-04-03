@@ -21,9 +21,9 @@ const events = {
   "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false;  } },
 
   // DEBUG
-  "#BTN1" : { "event" : "click", "func" : function() { overlay.login(); overlay.show(); } },
-  "#BTN2" : { "event" : "click", "func" : function() { overlay.hide(); } },
-  "#BTN3" : { "event" : "click", "func" : function() { savePanels() } }
+  "#BTN1" : { "event" : "click", "func" : function() { } },
+  "#BTN2" : { "event" : "click", "func" : function() { nodeJS.loadData("panels"); } },
+  "#BTN3" : { "event" : "click", "func" : function() { savePanels(); } }
   // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
 };
@@ -51,11 +51,39 @@ function savePanels () {
 
   for (var i=0, len = panels.objects.length; i < len; i++ ) {
     var options = panels.objects[i]["getOptions"]();
-    data.push({ uuid : options.uuid, o : options });
+
+    // Dont save time panel.
+    if ( options.template != "mouseoverSegment" ) {
+      data.push({ uuid : options.uuid, o : options })
+    };
+
   }
 
   // return { panels: data };
-  nodeJS.save({ panels: data });
+  nodeJS.saveData({ panels: data });
+}
+
+function loadPanels ( data ) {
+
+  var uuids = [];
+  var objects = data.message.panels;
+
+  for (var i=0, len = panels.objects.length; i < len; i++ ) {
+    uuids.push(panels.objects[i]["o"]["uuid"]);
+  }
+
+  for (var i=0, len = objects.length; i < len; i++ ) {
+
+    // Check if loaded panel is not already in scene
+    if ( uuids.indexOf(objects[i]["uuid"]) < 0 ) {
+
+      var unzipedOptions = panels.unzipOptions(JSON.parse(objects[i]["options"]));
+      panels.createPanel( unzipedOptions );
+
+    }
+
+  }
+
 }
 
 function createImage ( panel3D, src ,names ) {

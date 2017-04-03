@@ -10,8 +10,6 @@ var mouse = new THREE.Vector2();
 var pauseRaycaster = false;
 var updatepanels = false;
 
-
-
 // DEBUG
 var cssObject, plane;
 var debug = false;
@@ -378,6 +376,27 @@ function Helix (scene, segmentConst, birthDate) {
     return undefined;
   },
 
+  // Returns segment on which is located coordinate z
+  getSegmentOnZ : function ( z ) {
+
+    const Tz = this.getTFromZ( z );
+
+    for ( var i = 0, len = this.segments.length; i < len; i++ ) {
+
+      if ( this.segments[i].o.T1 == Tz ) {
+        return this.segments[i];
+      }
+
+      if ( this.segments[i+1].o.T1 > Tz ) {
+        return this.segments[i];
+      }
+
+
+    }
+
+    return undefined;
+  },
+
   getTimeFromT : function ( T ) {
 
     var time = new Date();
@@ -673,7 +692,7 @@ Panel.prototype = {
     var exportOptions = Object.assign({}, this.o);
 
     // converts all complex objects to data neccessary for reconstruction.
-    exportOptions.buddy = "";
+    exportOptions.buddy = this.o.buddy.uuid;
     exportOptions.centerPosition = { x: this.o.centerPosition.x, y: this.o.centerPosition.y, z:this.o.centerPosition.z };
     exportOptions.panelPosition = { x: this.o.panelPosition.x, y: this.o.panelPosition.y, z:this.o.panelPosition.z };
     exportOptions.rotation = { x: this.o.rotation.x, y: this.o.rotation.y, z:this.o.rotation.z };
@@ -694,19 +713,24 @@ Panel.prototype = {
 
     this._setMathPlane();
 
+    // In case we already has html. Like when loaded from BE.
     this.o.html = this.o.html || this.setTemplateElements();
+
+    this._width = this.o.width;
+    this._height = this.o.height;
 
     // debugLog(this.o.html);
 
     this._createCssObject();
     this.css3d.uuid = this.plane.uuid;
 
+    // Makes possible to import JS from templates.
     nodeScriptReplace(this.o.html);
 
     this._createLine();
     this._createPositionRing();
 
-    // self.setLineTouchingPoint();
+    this.setLineTouchingPoint();
 
   },
 
@@ -720,7 +744,7 @@ Panel.prototype = {
                           side: THREE.DoubleSide
                         });
 
-     const geometry = new THREE.RoundedSquare( this.o.width, this.o.height );
+     const geometry = new THREE.RoundedSquare( this.o.width, this.o.height, 4 );
      var mesh = new THREE.Mesh( geometry, material );
 
      mesh.uuid = this.o.uuid || mesh.uuid;
@@ -834,6 +858,9 @@ Panel.prototype = {
 
     div.className = "panel3D";
     div.setAttribute("id", this.o.uuid);
+
+    // div.style.width = this.o.w;
+    // div.style.height = this.o.h;
 
     //  Closing cross
     // if ( div.getElementsByClassName('glyphicon-remove')[0] ) {
@@ -1323,12 +1350,28 @@ Panels.prototype = {
     return undefined;
   },
 
+
+
+  // Unzipping options from BE. Mean recreates object based on ziped data.
   unzipOptions : function ( zippedO ) {
+    console.log(zippedO);
 
     zippedO.centerPosition = new THREE.Vector3 ( zippedO.centerPosition.x, zippedO.centerPosition.y, zippedO.centerPosition.z );
-    zippedO.panelPosition = new THREE.Vector3 ( zippedO.panelPosition.x, v.panelPosition.y, zippedO.panelPosition.z );
+    zippedO.panelPosition = new THREE.Vector3 ( zippedO.panelPosition.x, zippedO.panelPosition.y, zippedO.panelPosition.z );
     zippedO.rotation = new THREE.Vector3 ( zippedO.rotation.x, zippedO.rotation.y, zippedO.rotation.z );
-    zippedO.buddy = "";
+
+    var div = document.createElement('div');
+    div.innerHTML = zippedO.html;
+    div.className = "panel3D";
+    div.setAttribute("id", zippedO.uuid);
+    div.style.width = zippedO.width;
+    div.style.height = zippedO.height;
+
+    zippedO.html = div;
+
+
+    // Is possible that buddy (usualy segment) was not loaded yet. Or doesnt exist. So if not found in scene. Let get default on based on panel position.
+    zippedO.buddy = scene.getObjectByProperty( "uuid", zippedO.buddy ) || Helix.getSegmentOnZ( zippedO.centerPosition.z );
 
    return zippedO;
  },
@@ -1349,6 +1392,10 @@ Panels.prototype = {
     this.objects.splice( index, 1 );
 
   },
+
+  // unzipOptions : function ( ) {
+  //
+  // },
 
   placePanel : function ( action, onObject, mousePointer, unique ) {
 
@@ -1437,7 +1484,6 @@ Panels.prototype = {
 
     return newPanel;
   },
-
 
 
 // Removing last panel
@@ -1924,7 +1970,9 @@ function render() {
 
       if ( intersecObj.click == "inhibit" ) {
 
-        panels.getByProp("template", "mouseoverSegment").visible(false);
+        if ( panels.getByProp("template", "mouseoverSegment") ) {
+          panels.getByProp("template", "mouseoverSegment").visible( false );
+        }
 
         var panel = intersecObj.dad;
 
