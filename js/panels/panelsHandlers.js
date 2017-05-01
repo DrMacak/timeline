@@ -12,7 +12,7 @@ const events = {
 
 
   // Panel controls
-  ".closeCross" : { "event" : "click", "func" : function() { deletePanel( this )  } },
+  ".closeCross" : { "event" : "click", "func" : function() { panels.removePanel( panels.getPanelByElement(this) ) } },
   ".hideOverlay" : { "event" : "click", "func" : function() { overlay.hide() } },
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
@@ -22,7 +22,7 @@ const events = {
 
   // DEBUG
   "#BTN1" : { "event" : "click", "func" : function() { } },
-  "#BTN2" : { "event" : "click", "func" : function() { nodeJS.loadData("panels"); } },
+  "#BTN2" : { "event" : "click", "func" : function() { nodeJS.loadData("panel"); } },
   "#BTN3" : { "event" : "click", "func" : function() { savePanels(); } }
   // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
@@ -54,19 +54,24 @@ function savePanels () {
 
     // Dont save time panel.
     if ( options.template != "mouseoverSegment" ) {
-      data.push({ uuid : options.uuid, o : options })
+      data.push({ type: "panel", uuid : options.uuid, o : options })
     };
 
   }
 
-  // return { panels: data };
-  nodeJS.saveData({ panels: data });
+  nodeJS.saveData({ objects: data });
 }
 
 function loadPanels ( data ) {
 
   var uuids = [];
-  var objects = data.message.panels;
+
+  if (!data.success) {
+    console.log("No data for this user.");
+    return;
+  }
+
+  var objects = data.message;
 
   for (var i=0, len = panels.objects.length; i < len; i++ ) {
     uuids.push(panels.objects[i]["o"]["uuid"]);
@@ -86,55 +91,62 @@ function loadPanels ( data ) {
 
 }
 
-function createImage ( panel3D, src ,names ) {
+function createImage ( src, panelHtml, name ) {
 
   var img = document.createElement( 'img' );
-  img.setAttribute( "src", src + names );
+  img.setAttribute( "src", src + name );
 
-  img.className =  "mediaImg";
+  img.className = "mediaImg";
 
-  panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
+  panelHtml.getElementsByClassName( "mediaTarget" )[0].innerHTML = img.outerHTML;
 
-  fitPanelOfElement(panel3D);
-  // var panel = panels.getByProp("uuid", panel3D.id);
-  // panel.setPlaneSizeToHTML();
+  // fitPanelOfElement( panelHtml );
+
+  var panel = panels.getByProp( "uuid", panelHtml.id );
+
+  panel.setPlaneSizeToHTML();
+
+  // Add name of file to list of files.
+  panel.o.files.push( name );
 
 }
 
-function createVideo ( panel3D, src, names ) {
+function createVideo ( src, panelHtml, name ) {
 
   var video = document.createElement( "video" );
 
-  video.setAttribute( "src", src + names );
+  video.setAttribute( "src", src + name );
   video.setAttribute( "controls", "true");
 
   video.className =  "mediaImg";
 
-  var mediaTarget = panel3D.getElementsByClassName( "mediaTarget" )[0];
-  // mediaTarget.style.width = "";
-  // mediaTarget.style.height = "";
-  mediaTarget.innerHTML = video.outerHTML;
+  panelHtml.getElementsByClassName( "mediaTarget" )[0].innerHTML = video.outerHTML;
 
-  // var panel = panels.getByProp("uuid", panel3D.id);
-  // panel.setPlaneSizeToHTML();
+  var panel = panels.getByProp( "uuid", panelHtml.id );
 
-  fitPanelOfElement(panel3D);
+  panel.setPlaneSizeToHTML();
+
+  // Add name of file to list of files.
+  panel.o.files.push( name );
 }
 
-function createAudio ( panel3D, src, names ) {
+function createAudio ( src, panelHtml, name ) {
 
   var audio = document.createElement( "audio" );
 
-  audio.setAttribute( "src", src + names );
+  audio.setAttribute( "src", src + name );
   audio.setAttribute( "controls", "true");
 
   audio.className =  "mediaImg";
 
-  panel3D.getElementsByClassName( "mediaTarget" )[0].innerHTML = audio.outerHTML;
+  panelHtml.getElementsByClassName( "mediaTarget" )[0].innerHTML = audio.outerHTML;
 
-  // var panel = panels.getByProp("uuid", panel3D.id);
-  // panel.setPlaneSizeToHTML();
-  fitPanelOfElement(panel3D);
+  var panel = panels.getByProp( "uuid", panelHtml.id );
+
+  panel.setPlaneSizeToHTML();
+
+  // Add name of file to list of files.
+  panel.o.files.push( name );
 
 }
 
@@ -144,21 +156,21 @@ function createGallery () {
 
 function editPanelText( element ) {
   console.log("pini");
-    const htmlPanel = getMyHtmlPanel( element );
-    const mediaTarget = htmlPanel.getElementsByClassName( "mediaTarget" )[0];
-    var textArea = document.createElement("textarea");
-    textArea.innerHTML = "Enter your text";
-    //
-    // if (htmlPanel.getElementsByClassName("textField")[0]){
-    //  var previouseText = htmlPanel.getElementsByClassName("textField")[0].textContent;
-    // }
+  const panelHtml = getMyHtmlPanel( element );
+  const mediaTarget = panelHtml.getElementsByClassName( "mediaTarget" )[0];
+  var textArea = document.createElement("textarea");
+  textArea.innerHTML = "Enter your text";
+  //
+  // if (panelHtml.getElementsByClassName("textField")[0]){
+  //  var previouseText = panelHtml.getElementsByClassName("textField")[0].textContent;
+  // }
 
-    mediaTarget.innerHTML = textArea.outerHTML;
-    // textArea.focus();
+  mediaTarget.innerHTML = textArea.outerHTML;
+  // textArea.focus();
 
-    var panel = panels.getByProp("uuid", htmlPanel.id);
-    panel.setPlaneSizeToHTML();
-    // mediaTarget.querySelector("textarea").focus();
+  var panel = panels.getByProp("uuid", panelHtml.id);
+  panel.setPlaneSizeToHTML();
+  // mediaTarget.querySelector("textarea").focus();
 }
 
 function saveText ( element, e ) {
@@ -188,30 +200,30 @@ function editText( element ) {
 }
 
 
-function deletePanel ( element ) {
-
-  const panelHtml = getMyHtmlPanel( element );
-  const panel3D = panels.getByProp( "uuid", panelHtml.id );
-
-  // Send delete request to backend so we dont need to store it.
-  if ( panelHtml.getElementsByClassName("mediaImg")[0] ) {
-
-    const mediaPath = panelHtml.getElementsByClassName("mediaImg")[0].getAttribute("src");
-    const fileName = mediaPath.substr( mediaPath.lastIndexOf("/") + 1 );
-
-    // Deletes data from BE and after success removes panel.
-    nodeJS.removeData( fileName, panel3D );
-
-  } else {
-
-    console.log("Panel doesnt contain media. No need to call BE");
-    panels.removeObject( panel3D );
-
-  }
-
-
-
-}
+// function deletePanel ( element ) {
+//
+//   const panelHtml = getMyHtmlPanel( element );
+//   const panel3D = panels.getByProp( "uuid", panelHtml.id );
+//
+//   // Send delete request to backend so we dont need to store it.
+//   if ( panelHtml.getElementsByClassName("mediaImg")[0] ) {
+//
+//     const mediaPath = panelHtml.getElementsByClassName("mediaImg")[0].getAttribute("src");
+//     const fileName = mediaPath.substr( mediaPath.lastIndexOf("/") + 1 );
+//
+//     // Deletes data from BE and after success removes  panel.
+//     nodeJS.removeData( fileName, panel3D );
+//
+//   } else {
+//
+//     console.log("Panel doesnt contain media. No need to call BE");
+//     panels.removePanelLocally( panel3D );
+//
+//   }
+//
+//
+//
+// }
 
 function deleteObjectWRP ( uuids ) {
 
@@ -233,7 +245,7 @@ function deleteObjectWRP ( uuids ) {
 
     if ( panel !== undefined) {
 
-      panels.removeObject( panel );
+      panels.removePanelLocally( panel );
 
     }
   }
@@ -304,5 +316,5 @@ function getMyHtmlPanel ( element ) {
     }
   }
 
-  console.error("This element does not have HtmlPanel parent.");
+  console.error("This element does not have panelHtml parent.");
 }

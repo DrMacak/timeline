@@ -16,9 +16,18 @@ function populateHtmlTemplates (templateFiles) {
     };
   }
 
-  for (var i = 0; i < templateFiles.length; i++) {
+  for (var i = 0, len = templateFiles.length; i < len; i++) {
    var templateFileName = templateFiles[i];
   //  console.log("Geting AJAX data for template " + templateFiles[i]);
    $.get("data/" + templateFileName + ".htm", tempPutter(templateFileName) );
+  //  if (i+1 == len) {
+  //    START();
+  //  }
  }
+}
+
+
+// TBD
+function getTemplate ( tempName, callback ) {
+  $.get("data/" + tempName + ".htm", callback( data ) );
 }

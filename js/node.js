@@ -79,7 +79,7 @@ NodeJS.prototype.sendLogin = function ( form ) {
     pwd : pwd
   };
 
-  const doneWrap = function ( _this ) {
+  const successfulLogin = function ( _this ) {
 
     return function ( data ) {
 
@@ -98,7 +98,7 @@ NodeJS.prototype.sendLogin = function ( form ) {
 
         }
 
-        setTimeout(function() {
+        setTimeout( function() {
           overlay.purgeHide();
         }, 1000);
 
@@ -118,7 +118,7 @@ NodeJS.prototype.sendLogin = function ( form ) {
       data: JSON.stringify( payLoad ),
       processData: false,
       contentType: "application/json; charset=utf-8",
-      success: doneWrap( this ),
+      // success: doneWrap( this ),
       statusCode: {
                     401: function() {
                       console.log( "Login is incorrect" );
@@ -128,6 +128,8 @@ NodeJS.prototype.sendLogin = function ( form ) {
                   }
 
     })
+
+    .done( successfulLogin( this ) );
 
 }
 
@@ -143,15 +145,19 @@ NodeJS.prototype.createAccount = function ( form ) {
     pwd : pwd
   };
 
-  var doneWrap = function ( _this ) {
+  var accountCreated = function ( _this ) {
 
     // const doneWrap = function ( _this, _doneCallback ) {
 
       return function ( data ) {
+
+        // Save token
         if ( _this.saveToken( data.token ) ) {
 
-          overlay.setHeader( "Welcome to Timelix " + _this.token.body.username );
+          // Set overlay header to welcom new user
+          overlay.setHeader( "Welcome to Timelix newbie " + _this.token.body.username + "!");
 
+          // Check if we dont have any callbacks qued
           if ( _this.quedCallback.length != 0 ) {
 
             for (var i = 0; i < _this.quedCallback.length; i++ ) {
@@ -193,7 +199,7 @@ NodeJS.prototype.createAccount = function ( form ) {
 
     })
 
-    .done( doneWrap( this ) )
+    .done( accountCreated( this ) )
 
     .fail( function() {
       console.error("Connection to "+ url +" failed!");
@@ -203,15 +209,10 @@ NodeJS.prototype.createAccount = function ( form ) {
 
 NodeJS.prototype.uploadData = function ( inputEl, type ) {
 
-  // var inputEl = _inputEl || inputEl;
-  // var type = _type || inputEl;
-
-
-
   // In case token is not valid que this function call to quedCallback to fire it after successful login.
   // quedCallback is selfInvoked closure to store input data
   if ( !this.isTokenValid() ) {
-    this.quedCallback.push( ( function ( inputEl, type, _this ) { return function () { _this.uploadData(  inputEl, type ) } } )( inputEl, type, this ) );
+    this.quedCallback.push( ( function ( _inputEl, _type, _this ) { return function () { _this.uploadData( _inputEl, _type ) } } )( inputEl, type, this ) );
     overlay.login();
     overlay.setHeader("Your session expired");
     overlay.show();
@@ -235,35 +236,32 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
     }
 
     // Closure to get needed data into AJAX
-    var wrapper = function ( src, type, HtmlPanel ) {
+    var wrapper = function ( _src, _type, _panelHtml ) {
 
       return function setMediaElement( data ) {
 
-            if ( type == "img" ) {
-              createImage ( HtmlPanel, src, data.message );
-            }
+            if ( _type == "img" ) {
 
-            if ( type == "vid" ) {
-              createVideo ( HtmlPanel, src, data.message );
-            }
+              createImage ( _src, _panelHtml, data.message );
 
-            if ( type == "aud" ) {
-              createAudio ( HtmlPanel, src, data.message );
+            } else if ( _type == "vid" ) {
+
+              createVideo ( _src, _panelHtml, data.message );
+
+            } else if ( _type == "aud" ) {
+
+              createAudio ( _src, _panelHtml, data.message );
+
             }
         }
     }
 
-    var errorWrap = function ( src ) {
-      return function ( error ) {
-        console.error("Uploading file to "+ src +" failed!");
-      }
-    }
-
-    // var tokenWrap = function ( self ) {
-    //   return function ( request ) {
-    //     request.setRequestHeader("Authorization", "self.token.raw");
-    //   }
+    // var errorWrap = function ( _src ) {
+    //   function ( error ) {
+      // console.error("Uploading file to "+ _src +" failed!");
     // }
+    // }
+
 
   $.ajax({
       url: upSrc,
@@ -272,7 +270,7 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
       processData: false,
       contentType: false,
       headers: { "Authorization" : this.token.raw },
-      success: wrapper( src, type, HtmlPanel ),
+      // success: wrapper( src, type, HtmlPanel ),
 
       xhr: function( HtmlPanel ) {
         // create an XMLHttpRequest
@@ -288,50 +286,55 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
         } , false);
       return xhr; }
   })
-  .fail( errorWrap( upSrc ) );
 
-}
+  .done( wrapper( src, type, HtmlPanel ) )
 
-NodeJS.prototype.removeData = function ( fileName, panel3D ) {
-
-  if ( !this.isTokenValid() ) {
-    this.quedCallback.push( ( function ( _fileName, _panel3D, _this ) { return function () { _this.removeData( _fileName, _panel3D ) } } )( fileName, panel3D, this ) );
-    overlay.login();
-    overlay.setHeader("Your session expired");
-    overlay.show();
-    return;
-  }
-
-  const url = this.url + this.delRoute + fileName;
-
-  $.ajax({
-    url: url,
-    type: 'DELETE',
-    // data: JSON.stringify( url + fileName ),
-    processData: false,
-    headers: { "Authorization": this.token.raw }
-    // contentType: "application/json; charset=utf-8"
-
-  })
-
-  .done( function( data ) {
-
-    panels.removeObject( panel3D );
-
-  })
-
-  .fail( function() {
-    console.error("Removing file "+ fileName +" from "+ url +" failed!");
+  .fail( function ( ) {
+    console.error("Uploading file to "+ src +" failed!");
   });
 
-  // $.post( url + fileName, function( data ) {
-  //     console.log("File successfuly deleted.");
-  //   })
-  //   .fail( function() {
-  //     console.error("Removing file "+ fileName +" from "+ url +" failed!");
-  //   });
-
 }
+
+// NodeJS.prototype.removeFile = function ( fileName, panel3D ) {
+//
+//   if ( !this.isTokenValid() ) {
+//     this.quedCallback.push( ( function ( _fileName, _panel3D, _this ) { return function () { _this.removeFile( _fileName, _panel3D ) } } )( fileName, panel3D, this ) );
+//     overlay.login();
+//     overlay.setHeader("Your session expired");
+//     overlay.show();
+//     return;
+//   }
+//
+//   const url = this.url + this.delRoute + fileName;
+//
+//   $.ajax({
+//     url: url,
+//     type: 'DELETE',
+//     // data: JSON.stringify( url + fileName ),
+//     processData: false,
+//     headers: { "Authorization": this.token.raw }
+//     // contentType: "application/json; charset=utf-8"
+//
+//   })
+//
+//   .done( function( data ) {
+//
+//     panels.removePanelLocally( panel3D );
+//
+//   })
+//
+//   .fail( function() {
+//     console.error("Removing file "+ fileName +" from "+ url +" failed!");
+//   });
+//
+//   // $.post( url + fileName, function( data ) {
+//   //     console.log("File successfuly deleted.");
+//   //   })
+//   //   .fail( function() {
+//   //     console.error("Removing file "+ fileName +" from "+ url +" failed!");
+//   //   });
+//
+// }
 
 NodeJS.prototype.saveData = function ( data )  {
 
@@ -385,6 +388,35 @@ NodeJS.prototype.loadData = function ( type )  {
 
   .fail( function() {
     console.error("Data loading from "+ url +" failed!");
+  });
+
+}
+
+NodeJS.prototype.removeData = function ( uuid, callback ) {
+
+  if ( !this.isTokenValid() ) {
+    this.quedCallback.push( ( function ( _uuid, _callback, _this ) { return function () { _this.removeData( _uuid, _callback ) } } )( uuid, callback, this ) );
+    overlay.login();
+    overlay.setHeader("Your session expired");
+    overlay.show();
+    return;
+  }
+
+  const url = this.url + this.dataRoute + uuid;
+
+  $.ajax({
+    url: url,
+    type: 'DELETE',
+    processData: false,
+    headers: { "Authorization": this.token.raw }
+  })
+
+  .done( function( data ) {
+    callback();
+  })
+
+  .fail( function() {
+    console.error("Removing object "+ uuid +" from "+ url +" failed!");
   });
 
 }

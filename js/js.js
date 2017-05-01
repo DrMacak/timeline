@@ -78,7 +78,7 @@ SegCurve.prototype._tStrech = function ( t ) {
 
 function Segment ( options ) {
 
-  // this.self = this;
+  this.type = "segment";
 
   this.o = options;
 
@@ -276,7 +276,7 @@ Segment.prototype = {
 
 function Helix (scene, segmentConst, birthDate) {
 
-  // var self = this;
+  this.type = "helix";
 
   this.SegmentOptions = function segOpts () {
     this.uuid = "",
@@ -649,7 +649,7 @@ function Helix (scene, segmentConst, birthDate) {
 
 function Panel ( options ) {
 
-  // var self = this;
+  this.type = "panel";
 
   this.o = options;
 
@@ -662,6 +662,7 @@ function Panel ( options ) {
 
   this.mathPlane = new THREE.Plane();
 
+  // native/absolute w and h
   this._width = 0;
   this._height = 0;
 
@@ -716,6 +717,7 @@ Panel.prototype = {
     // In case we already has html. Like when loaded from BE.
     this.o.html = this.o.html || this.setTemplateElements();
 
+    // Set native/absolute w and h
     this._width = this.o.width;
     this._height = this.o.height;
 
@@ -767,11 +769,12 @@ Panel.prototype = {
   // Creates math plane. Planes thats defined by 3 coplanar points is used for moving 3d plane around.
   _setMathPlane : function () {
 
-    var pointC = this.o.buddy.curve.getPoint(
-      Helix.getTFromZ(this.o.centerPosition.z),
-      true,
-      this.o.offsetX + 100,
-      this.o.offsetY + 100);
+    var pointC = new THREE.Vector3( this.o.centerPosition.x, this.o.centerPosition.y, this.o.centerPosition.z+10 );
+    // this.o.buddy.curve.getPoint(
+    //   Helix.getTFromZ(this.o.centerPosition.z),
+    //   true,
+    //   this.o.offsetX + 100,
+    //   this.o.offsetY + 100);
 
     this.mathPlane.setFromCoplanarPoints( this.o.centerPosition, this.o.panelPosition, pointC );
 
@@ -1283,7 +1286,7 @@ respectRatio : function ( newWidth, newHeight ) {
   const newRatio = newWidth / newHeight;
   // debugger;
 
-  console.log(newWidth+" newW");
+  // console.log(newWidth+" newW");
 
   if ( newRatio > ratio ) {
     return { W : newWidth, H : newWidth / ratio };
@@ -1323,7 +1326,8 @@ function Panels(scene, cssScene, panelConst) {
     this.visible = true,
     this.justRing = false,
     this.buddy = undefined,
-    this.html = undefined
+    this.html = undefined,
+    this.files = []
     // this.color = 0xFFFFFF,
     // this.timePosition = 0,
     // this.transparency = 0,
@@ -1350,7 +1354,29 @@ Panels.prototype = {
     return undefined;
   },
 
+  // Get Panel by one of its HTML elements
+  getPanelByElement : function ( htmlElement ) {
+      const panelHtml = getMyHtmlPanel( htmlElement );
+      return this.getByProp( "uuid", panelHtml.id );
+  },
 
+  // Get PanelHtml by one of its html elements
+  getHtmlPanelByElement : function ( htmlElement ) {
+
+    if( element.className.indexOf("panel3D") > - 1) {
+      return htmlElement;
+    }
+
+    const parents = $( htmlElement ).parents();
+
+    for (var i = 0; i < parents.length; i++ ) {
+      if ( parents[i]["className"] == "panel3D" ) {
+         return parents[i];
+      }
+    }
+
+    console.error("This element does not have panelHtml parent.");
+  },
 
   // Unzipping options from BE. Mean recreates object based on ziped data.
   unzipOptions : function ( zippedO ) {
@@ -1374,20 +1400,45 @@ Panels.prototype = {
     zippedO.buddy = scene.getObjectByProperty( "uuid", zippedO.buddy ) || Helix.getSegmentOnZ( zippedO.centerPosition.z );
 
    return zippedO;
- },
+  },
 
-  removeObject : function ( object ) {
+  // Removing panel calls BE and then it removes panel locally
+  removePanel : function ( panel ) {
 
-    infoLog("Removing object:");
-    infoLog(object);
+   if ( panel.o.uuid ) {
 
-    var index = this.objects.indexOf( object );
+     if ( panel.o.html.getElementsByClassName("mediaImg")[0] ) {
 
-    this.scene3d.remove( object.plane );
-    this.scene3d.remove( object.line );
-    this.scene3d.remove( object.ring );
+         var callback = function ( _panel, _this ) { return function () { _this.removePanelLocally( _panel ); } };
 
-    this.css3dScene.remove( object.css3d );
+         nodeJS.removeData( panel.o.uuid, callback( panel, this ) );
+
+       } else {
+
+         console.log("Panel doesnt contain media. No need to call BE");
+         panels.removePanelLocally( panel );
+
+       }
+
+   } else {
+     console.error("Invalid panel object. UUID not found.");
+   }
+
+  },
+
+  // Removes panel locally after its removed from BE
+  removePanelLocally : function ( panel ) {
+
+    infoLog("Removing locally object:");
+    infoLog(panel);
+
+    var index = this.objects.indexOf( panel );
+
+    this.scene3d.remove( panel.plane );
+    this.scene3d.remove( panel.line );
+    this.scene3d.remove( panel.ring );
+
+    this.css3dScene.remove( panel.css3d );
 
     this.objects.splice( index, 1 );
 
@@ -1486,44 +1537,44 @@ Panels.prototype = {
   },
 
 
-// Removing last panel
-removeLastPanel : function ( ) {
-  if (this.objects.length > 0) {
-    this.removeObject(this.objects[this.objects.length-1]);
-  }
-},
+  // Removing last panel
+  removeLastPanel : function ( ) {
+    if (this.objects.length > 0) {
+      this.removePanelLocally(this.objects[this.objects.length-1]);
+    }
+  },
 
-// detects if media panel should be mirrored in order to face toward camera
-faceTowardCamera : function ( ) {
+  // detects if media panel should be mirrored in order to face toward camera
+  faceTowardCamera : function ( ) {
 
-  var cameraAngleY = Helix.getAngle( camera.position );
+    var cameraAngleY = Helix.getAngle( camera.position );
 
-  for (var i = 0; i <  this.objects.length; i++) {
+    for (var i = 0; i <  this.objects.length; i++) {
 
-    if (this.objects[i].o.template == "leftClickSegment") {
+      if (this.objects[i].o.template == "leftClickSegment") {
 
-      var panel = this.objects[i];
-      var panelRotY = panel.o.rotation.y;
-      var panelAngleY = Helix.getAngle( panel.o.panelPosition );
+        var panel = this.objects[i];
+        var panelRotY = panel.o.rotation.y;
+        var panelAngleY = Helix.getAngle( panel.o.panelPosition );
 
-      var diffAngle = ( Math.PI - cameraAngleY );
+        var diffAngle = ( Math.PI - cameraAngleY );
 
-      var correctedAngle = panelAngleY + diffAngle;
+        var correctedAngle = panelAngleY + diffAngle;
 
-      if ( correctedAngle > Math.PI && correctedAngle < Math.PI*2 || correctedAngle < 0) {
-        if ( panelRotY != panelAngleY ) {
-          panel.setRotationY( panelAngleY );
+        if ( correctedAngle > Math.PI && correctedAngle < Math.PI*2 || correctedAngle < 0) {
+          if ( panelRotY != panelAngleY ) {
+            panel.setRotationY( panelAngleY );
+          }
+        } else {
+          if ( Math.floor(panelRotY * 100 ) === Math.floor( panelAngleY * 100 ) ) {
+            panel.switchYRotation();
+          }
         }
-      } else {
-        if ( Math.floor(panelRotY * 100 ) === Math.floor( panelAngleY * 100 ) ) {
-          panel.switchYRotation();
-        }
+
       }
 
     }
-
   }
-}
 }
 ///////////////////////////////////////////////////////////////////
 // Main INIT
@@ -2019,9 +2070,14 @@ function updateRenderes () {
 }
 
 // when ready, start.
-$( document ).ready(function() {
 
-  init( birthDateINP );
+// function START() {
 
-  animate();
-});
+  $( document ).ready(function() {
+
+    init( birthDateINP );
+
+    animate();
+  });
+
+// }
