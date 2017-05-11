@@ -59,7 +59,7 @@ function savePanels () {
 
   }
 
-  nodeJS.saveData({ objects: data });
+  nodeJS.saveData( data );
 }
 
 function loadPanels ( data ) {
@@ -109,6 +109,7 @@ function createImage ( src, panelHtml, name ) {
   // Add name of file to list of files.
   panel.o.files.push( name );
 
+  panel.saveToNode();
 }
 
 function createVideo ( src, panelHtml, name ) {

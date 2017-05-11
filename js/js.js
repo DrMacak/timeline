@@ -5,18 +5,17 @@ var camera, controls,
 
 var raycaster, currentIntersected, donutMesh;
 var INTERSECTED;
-var mouse = new THREE.Vector2();
 
 var pauseRaycaster = false;
 var updatepanels = false;
 
 // DEBUG
-var cssObject, plane;
+// var cssObject, plane;
 var debug = false;
 
 // This should be globals
 // Birth date, its begining of Timeline to now
-var birthDateINP = new Date("03 24 2010");
+var birthDateINP = new Date("03 24 1987");
 
 // List of segments. Segments are by default years and part before birth and after present.
 // Plus user selected time segments, these are stored in user or backend storage
@@ -27,6 +26,265 @@ var panels;
 
 // HTML Overlay for showing galleries and fullscreenmode
 var Overlay;
+
+// var mouse = new THREE.Vector2();
+
+function Mouse () {
+  this.x = 0;
+  this.y = 0;
+
+  this.diffX = 0;
+  this.diffY = 0;
+
+  this.clientX = 0;
+  this.clientY = 0;
+
+  this.dragging = false;
+  this.resizing = false;
+  this.activePanel = undefined;
+}
+
+Mouse.prototype = THREE.Vector2.prototype;
+
+var mouse = new Mouse();
+
+
+
+///////////////////////////////////////////////////////////////////
+// Timelix main object.
+//
+///////////////////////////////////////////////////////////////////
+
+function Timelix () {
+
+  this.viewDistance = 50000;
+  this.near = 1;
+  this.birthDate = 0;
+
+
+}
+
+Timelix.prototype.init = function ( birthDate ) {
+
+  this.birthDate = birthDate;
+
+  this.placeEventListeners();
+
+  this.createRaycaster();
+
+  renderer = createGlRenderer();
+
+  cssRenderer = createCssRenderer();
+
+  document.body.appendChild(cssRenderer.domElement);
+  // This is important so you can click on embeded html!
+  renderer.domElement.style.pointerEvents = "none";
+
+  cssRenderer.domElement.appendChild(renderer.domElement);
+
+  cssRenderer.domElement.appendChild( stats.dom );
+
+
+  scene = new THREE.Scene();
+
+  cssScene = new THREE.Scene();
+
+  // ASYNC load helix
+  Helix = new Helix(scene, Segment, birthDate);
+  Helix.genDefaultSegments();
+
+  panels = new Panels(scene, cssScene, Panel);
+
+  // this.loadUserData();
+
+  this.placeLights();
+
+  this.placeGeometry();
+
+  scene.background = new THREE.Color( 0xFFFF00 );
+
+  // SomeHow camera has to be below Helix otherwise it doesnt show segments.
+  this.placeCamera();
+  this.setControls();
+
+  overlay = new Overlay("Overlay");
+  nodeJS = new NodeJS();
+
+  if (debug) {
+    createGUI();
+    // DEBUG
+    // DEBUG
+  }
+
+}
+
+Timelix.prototype.createRaycaster = function () {
+  raycaster = new THREE.Raycaster();
+  raycaster.near = this.near;
+  raycaster.far = this.viewDistance;
+}
+
+Timelix.prototype.placeCamera = function () {
+  // set some camera attributes
+  const VIEW_ANGLE = 45;
+  const  ASPECT = window.innerWidth / window.innerHeight;
+
+  // should be higher to improve zbuffer resolution.
+  const NEAR = 100;
+
+  camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, this.viewDistance);
+
+  camera.position.z = Helix.height/2;
+  camera.position.x = 3000;
+  camera.position.y = 0;
+
+  scene.add(camera);
+}
+
+Timelix.prototype.placeLights = function () {
+  // Lights
+  light = new THREE.DirectionalLight( 0xffffff );
+	light.position.set( 10, 20, 30 );
+	scene.add( light );
+
+	light = new THREE.DirectionalLight( 0xffffff );
+	light.position.set( -10, -20, -30 );
+	scene.add( light );
+
+	light = new THREE.AmbientLight( 0xffffff, 1, 5000  );
+	scene.add( light );
+}
+
+Timelix.prototype.placeGeometry = function () {
+
+  var map = new THREE.TextureLoader().load( 'img/UV_Grid_Sm.jpg' );
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  map.anisotropy = 16;
+
+  // Spehere
+  geometry = new THREE.SphereGeometry( 1 );
+	material = new THREE.MeshBasicMaterial( { color: 0xff0000 });
+  sphereInter = new THREE.Mesh( geometry, material );
+  sphereInter.visible = false;
+  scene.add( sphereInter );
+
+  // Circle
+  geometry = new THREE.CircleGeometry( 20, 64);
+  material = new THREE.MeshBasicMaterial( { map:map, color: 0xff0000 });
+  material.side = THREE.DoubleSide;
+  circleTest = new THREE.Mesh( geometry, material );
+  // circleTest.visible = false;
+  // circleTest.rotation.x =  Math.PI / 2;
+  scene.add( circleTest );
+
+  // var planeMesh = addPanelToScene(scene);
+
+  // cube.rotateX(90);
+  // axes
+  axes = new THREE.AxisHelper( 100 );
+  scene.add( axes );
+
+}
+
+Timelix.prototype.setControls = function () {
+  controls = new THREE.TrackballControls( camera );
+  controls.target.set( 0, 0, Helix.height/2 );
+  controls.rotateSpeed = 4;
+  controls.zoomSpeed = 0.1;
+  controls.panSpeed = 0.4;
+  controls.noZoom = false;
+  controls.addEventListener( 'change', render );
+}
+
+
+Timelix.prototype.placeEventListeners = function () {
+
+    window.addEventListener( 'resize', onWindowResize, false );
+    document.addEventListener( 'mousemove', onMouseMove, false );
+    document.addEventListener( 'mousedown', function (e) { mouseDown(e) }, false );
+
+    // function(e) {
+    //   if (e.which == 1) {
+    //     console.log("leftDOWN");
+    //     mouse.leftCliked = true;
+    //     leftCliked(e);
+    //   } else if (e.which == 3) {
+    //     mouse.rightCliked = true;
+    //     rightCliked(e);
+    //   }
+    // }
+
+    document.addEventListener( 'mouseup', function(e) {
+      if (e.which == 1) {
+        // console.log("leftUP");
+        // mouse.leftCliked = false;
+
+        mouse.dragging = false;
+        mouse.resizing = false;
+
+        controls.enabled = true;
+
+        if (mouse.activePanel) {
+          // mouse.activePanel.flushOffsetBuffer();
+          mouse.activePanel._vectorBuffer.clear();
+        }
+      } else if (e.which == 3) {
+
+        // mouse.rightCliked = false;
+
+      }
+    }, false );
+
+    document.addEventListener( 'keydown', function (e) {
+      var key = e.which || e.keyCode;
+      if (key === 27) {
+        if (overlay.visible) {
+          overlay.purgeHide();
+          return;
+        }
+        panels.removeLastPanel();
+      }
+
+      // if (key === 106) {
+      //   panels.removeLastPanel();
+      //
+      // }
+    }, false );
+
+
+}
+
+Timelix.prototype.loadUserData = function ( ) {
+
+  // Load segments if specified.
+
+  var uuids = [];
+
+  if (!data.success) {
+    console.log("No data for this user.");
+    return;
+  }
+
+  var objects = data.message;
+
+  for (var i=0, len = panels.objects.length; i < len; i++ ) {
+    uuids.push(panels.objects[i]["o"]["uuid"]);
+  }
+
+  for (var i=0, len = objects.length; i < len; i++ ) {
+
+    // Check if loaded panel is not already in scene
+    if ( uuids.indexOf(objects[i]["uuid"]) < 0 ) {
+
+      var unzipedOptions = panels.unzipOptions(JSON.parse(objects[i]["options"]));
+      panels.createPanel( unzipedOptions );
+
+    }
+
+  }
+
+}
+
 
 ///////////////////////////////////////////////////////////////////
 // 3D segment constructor.
@@ -644,7 +902,7 @@ function Helix (scene, segmentConst, birthDate) {
 
 ///////////////////////////////////////////////////////////////////
 // 3D panel constructor.
-//
+// Panel is object that is constructed from panelHtml and panel3D
 ///////////////////////////////////////////////////////////////////
 
 function Panel ( options ) {
@@ -653,9 +911,10 @@ function Panel ( options ) {
 
   this.o = options;
 
+  // css3d Three object to work with Html
   this.css3d = undefined;
+  // Three 3D Plane as background to make 3D Html work.
   this.plane = undefined;
-  // this.html = undefined;
 
   this.line = undefined;
   this.ring = undefined;
@@ -844,7 +1103,7 @@ Panel.prototype = {
   // Set Template elements if they are found.
   setTemplateElements : function ( ) {
 
-    var tempHTML = templatesG[this.o.template];
+    var tempHTML = templator.templates[this.o.template];
 
     const info = this.o.buddy.o;
 
@@ -1295,6 +1554,10 @@ respectRatio : function ( newWidth, newHeight ) {
   }
 
   return { W : newWidth , H : newHeight }
+},
+
+saveToNode : function () {
+  nodeJS.savePanel( this );
 }
 
 }
@@ -1594,9 +1857,9 @@ function init( birthDate ){
 // PROTO
   // mouse = new THREE.Vector2();
 
-  // TBD clean this up.
-  mouse.dragging = false;
-  mouse.resizing = false;
+  // // TBD clean this up.
+  // mouse.dragging = false;
+  // mouse.resizing = false;
 
   // Should be remove as it is not needed anymore?
   // mouse.leftCliked = 0;
@@ -1957,7 +2220,7 @@ function doAction (action, onObject, mousePointer) {
 
 function animate() {
 
-  // debugger;
+  // HACK
   for (var i = 0; i < panels.objects.length;i++ ) {
 
     const panel = panels.objects[i];
@@ -2069,15 +2332,14 @@ function updateRenderes () {
   cssRenderer.render(cssScene, camera);
 }
 
-// when ready, start.
 
-// function START() {
+$( document ).ready(function() {
 
-  $( document ).ready(function() {
+    timelix = new Timelix()
 
-    init( birthDateINP );
+    timelix.init( birthDateINP );
+
+    // init( birthDateINP );
 
     animate();
   });
-
-// }

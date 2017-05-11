@@ -30,9 +30,7 @@ function onMouseMove( event ) {
 	if ( mouse.resizing ) {
 			var planeIntersection = new THREE.Vector3();
 			raycaster.ray.intersectPlane( mouse.activePanel.mathPlane, planeIntersection );
-
 			mouse.activePanel.resizeToNewCorner( planeIntersection );
-
 			mouse.activePanel.setLineTouchingPoint();
 	}
 

@@ -10,9 +10,22 @@ function Overlay ( elementId ) {
 }
 
 Overlay.prototype.init = function () {
-  this.el.innerHTML = templatesG["overlay"];
-  this.content = this.el.getElementsByClassName( "overlayContent" )[0];
-  this.header = this.el.getElementsByClassName( "overlayHeader" )[0];
+
+  const wrapper = function ( _this ) {
+
+    return function (data) {
+
+      _this.el.innerHTML = data;
+      _this.content = _this.el.getElementsByClassName( "overlayContent" )[0];
+      _this.header = _this.el.getElementsByClassName( "overlayHeader" )[0];
+
+    } };
+
+  templator.getTemplate( "overlay", wrapper( this ));
+
+  // this.el.innerHTML = templatesG["overlay"];
+  // this.content = this.el.getElementsByClassName( "overlayContent" )[0];
+  // this.header = this.el.getElementsByClassName( "overlayHeader" )[0];
 }
 
 Overlay.prototype.show = function () {
@@ -77,8 +90,21 @@ Overlay.prototype.setHeader = function ( header ) {
 }
 
 Overlay.prototype.login = function () {
-  this.content.innerHTML = templatesG["login"];
-  this.loginLoaded = true;
+
+  const wrapper = function ( _this ) {
+
+    return function (data) {
+
+      _this.content.innerHTML = data;
+      _this.loginLoaded = true;
+
+    }
+  };
+
+  templator.getTemplate( "login", wrapper (this) );
+
+  // this.content.innerHTML = templatesG["login"];
+  // this.loginLoaded = true;
 }
 
 Overlay.prototype.loginShowCreateBtn = function () {
@@ -88,6 +114,9 @@ Overlay.prototype.loginShowCreateBtn = function () {
   var createBtn = this.content.getElementsByClassName("btn-create")[0];
   createBtn.style.visibility = "visible";
   createBtn.style.height = "36px";
+  var birthDateInputs = this.content.getElementsByClassName("birthDateInputs")[0];
+  birthDateInputs.style.visibility = "visible";
+  birthDateInputs.style.height = "initial";
 
 }
 

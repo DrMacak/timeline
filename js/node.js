@@ -35,19 +35,6 @@ NodeJS.prototype.init = function( ) {
   overlay.fastHide();
 }
 
-//
-// NodeJS.prototype.isOK = function () {
-//
-//   if ( !this.isTokenValid() ) {
-//     overlay.login();
-//     overlay.setHeader("Your session expired");
-//     overlay.show();
-//     return false;
-//   };
-//
-//   return true;
-// }
-
 NodeJS.prototype.testConnection = function( ) {
   $.get(this.url, function ( data ) {
 
@@ -72,7 +59,8 @@ NodeJS.prototype.sendLogin = function ( form ) {
   const username = form.getElementsByClassName("inputUserName")[0].value;
   const pwd = form.getElementsByClassName("inputPassword")[0].value;
 
-  if ( username == "" || pwd == "" ) { overlay.setHeader("Username or password cannot be blank"); return false; }
+  // Not realy neccessary Browser is taking care of this by required param.
+  // if ( username == "" || pwd == "" ) { overlay.setHeader("Username or password cannot be blank"); return false; }
 
   const payLoad =  {
     name : username,
@@ -140,9 +128,16 @@ NodeJS.prototype.createAccount = function ( form ) {
   const username = form.getElementsByClassName("inputUserName")[0].value;
   const pwd = form.getElementsByClassName("inputPassword")[0].value;
 
+  const bDay = form.getElementsByClassName("bDay")[0].value;
+  const bMonth = form.getElementsByClassName("bMonth")[0].value;
+  const bYear = form.getElementsByClassName("bYear")[0].value;
+
+  const bDate = new Date(bDay + " " + bMonth + " " + bYear);
+
   const payLoad =  {
     name : username,
-    pwd : pwd
+    pwd : pwd,
+    bDate : bDate
   };
 
   var accountCreated = function ( _this ) {
@@ -253,6 +248,9 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
               createAudio ( _src, _panelHtml, data.message );
 
             }
+
+            // panel.saveToNode();
+
         }
     }
 
@@ -336,6 +334,19 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
 //
 // }
 
+// Prepares data from one panel and sends it to saveData
+NodeJS.prototype.savePanel = function ( panel ) {
+
+  var options = panel.getOptions();
+
+  // Dont save time panel.
+  if ( options.template != "mouseoverSegment" ) {
+    this.saveData( [{ type: "panel", uuid : options.uuid, o : options }] );
+  };
+
+}
+
+// Accepts array of objects {type: "str", uuid:"str", o:"str"}
 NodeJS.prototype.saveData = function ( data )  {
 
   console.log(data);
@@ -345,7 +356,7 @@ NodeJS.prototype.saveData = function ( data )  {
   $.ajax({
     url: url,
     type: 'POST',
-    data: JSON.stringify( data ),
+    data: JSON.stringify( { objects : data } ),
     processData: false,
     headers: { "Authorization": this.token.raw },
     contentType: "application/json; charset=utf-8"
