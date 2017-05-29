@@ -21,9 +21,9 @@ const events = {
   "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false;  } },
 
   // DEBUG
-  "#BTN1" : { "event" : "click", "func" : function() { } },
-  "#BTN2" : { "event" : "click", "func" : function() { nodeJS.loadData("panel"); } },
-  "#BTN3" : { "event" : "click", "func" : function() { savePanels(); } }
+  "#BTN1" : { "event" : "click", "func" : function() { nodeJS.loadData( "all", function (data) { console.log(data); } ); } },
+  "#BTN2" : { "event" : "click", "func" : function() { nodeJS.loadData("panel", function (data) { panels.createPanelsFromData(data); } ); } },
+  "#BTN3" : { "event" : "click", "func" : function() { nodeJS.logOut() } }
   // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
 };
@@ -46,21 +46,21 @@ for ( var key in events ) {
 
 // { panels: [ { uuid: 1324, o: options }, .. ] };
 
-function savePanels () {
-  var data = [];
-
-  for (var i=0, len = panels.objects.length; i < len; i++ ) {
-    var options = panels.objects[i]["getOptions"]();
-
-    // Dont save time panel.
-    if ( options.template != "mouseoverSegment" ) {
-      data.push({ type: "panel", uuid : options.uuid, o : options })
-    };
-
-  }
-
-  nodeJS.saveData( data );
-}
+// function savePanels () {
+//   var data = [];
+//
+//   for (var i=0, len = panels.objects.length; i < len; i++ ) {
+//     var options = panels.objects[i]["getOptions"]();
+//
+//     // Dont save time panel.
+//     if ( options.template != "mouseoverSegment" ) {
+//       data.push({ type: "panel", uuid : options.uuid, o : options })
+//     };
+//
+//   }
+//
+//   nodeJS.saveData( data );
+// }
 
 function loadPanels ( data ) {
 
@@ -232,11 +232,11 @@ function deleteObjectWRP ( uuids ) {
 
     var uuid = uuids[i];
 
-    var segment = Helix.getByProp("uuid", uuid);
+    var segment = helix.getByProp("uuid", uuid);
 
     if ( segment !== undefined ){
 
-      Helix.removeSegment ( segment );
+      helix.removeSegment ( segment );
 
       panels.getByProp( "template", "mouseoverSegment" ).visible(false);
 
@@ -254,10 +254,10 @@ function deleteObjectWRP ( uuids ) {
 
 function startNewSegmentWRP ( T1, PanelUuid ) {
 
-    Helix.segmentBuffer.active = true;
-    // Helix.segmentBuffer.shadowSegment.visible( true );
+    helix.segmentBuffer.active = true;
+    // helix.segmentBuffer.shadowSegment.visible( true );
 
-    Helix.segmentBuffer.T1 = parseFloat( T1 );
+    helix.segmentBuffer.T1 = parseFloat( T1 );
 
     var panel = panels.getByProp("uuid", PanelUuid);
 

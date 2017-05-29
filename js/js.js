@@ -3,6 +3,8 @@ var camera, controls,
     scene, renderer,
     cssScene,  cssRenderer;
 
+var frames = 0;
+
 var raycaster, currentIntersected, donutMesh;
 var INTERSECTED;
 
@@ -19,7 +21,7 @@ var birthDateINP = new Date("03 24 1987");
 
 // List of segments. Segments are by default years and part before birth and after present.
 // Plus user selected time segments, these are stored in user or backend storage
-var Helix;
+var helix;
 
 // List of panels and other non-segment objects.
 var panels;
@@ -48,6 +50,90 @@ Mouse.prototype = THREE.Vector2.prototype;
 
 var mouse = new Mouse();
 
+// Checking stuff if its neccessary to update DB
+
+var watchDog = {
+
+  hashes : {},
+
+  firstRun : true,
+
+  init : function () {
+    console.log("pini");
+    this.scanForChanges();
+    this.firstRun = false;
+  },
+
+  scanForChanges : function () {
+
+    // In this list I will cumulate all uuids that are in scene.
+    var uuidList = [];
+
+    if (helix) {
+      // One thing is changes in options and another is added/removed object.
+      for ( var i = 0, len = helix.segments.length; i < len; i++) {
+
+        var segmentOptions = helix.segments[i].getOptions();
+        var uuid = segmentOptions.uuid;
+
+        uuidList.push(uuid);
+
+        var optionsHash = nodeJS.md5(JSON.stringify(segmentOptions));
+
+        // if uuid is not in hashes then create it.
+        if ( !this.hashes[uuid] ) {
+          this.hashes[uuid] = optionsHash;
+
+          // If scan is not runned for first time save to DB.
+          if ( !this.firstRun ) {
+            helix.saveSegment(uuid);
+          }
+        }
+
+        // Something changed, update the BE.
+        if ( this.hashes[uuid] != optionsHash ) {
+          this.hashes[uuid] = optionsHash;
+          helix.saveSegment(uuid);
+        }
+
+      }
+    }
+
+    if (panels) {
+      for ( var i = 0, len = panels.objects.length; i < len; i++) {
+
+        if ( panels.objects[i].o.template != "mouseoverSegment") {
+
+          var panelOptions = panels.objects[i].getOptions();
+          var uuid = panelOptions.uuid;
+
+          uuidList.push(uuid);
+
+          var optionsHash = nodeJS.md5(JSON.stringify(panelOptions));
+
+          // if uuid is not in hashes then create it.
+          if ( !this.hashes[uuid] ) {
+            this.hashes[uuid] = optionsHash;
+
+            // If scan is not runned for first time save to DB.
+            if ( !this.firstRun ) {
+              panels.savePanel(uuid);
+            }
+          }
+
+          // Something changed, update the BE.
+          if ( this.hashes[uuid] != optionsHash ) {
+            this.hashes[uuid] = optionsHash;
+            panels.savePanel(uuid);
+          }
+
+        }
+      }
+    }
+    // this.firstRun = false;
+  }
+
+};
 
 
 ///////////////////////////////////////////////////////////////////
@@ -60,11 +146,12 @@ function Timelix () {
   this.viewDistance = 50000;
   this.near = 1;
   this.birthDate = 0;
-
-
+  // uuid : hash
 }
 
 Timelix.prototype.init = function ( birthDate ) {
+
+  const self = this;
 
   this.birthDate = birthDate;
 
@@ -84,17 +171,99 @@ Timelix.prototype.init = function ( birthDate ) {
 
   cssRenderer.domElement.appendChild( stats.dom );
 
-
   scene = new THREE.Scene();
 
   cssScene = new THREE.Scene();
 
   // ASYNC load helix
-  Helix = new Helix(scene, Segment, birthDate);
-  Helix.genDefaultSegments();
+
+  overlay = new Overlay("Overlay");
+  nodeJS = new NodeJS();
 
   panels = new Panels(scene, cssScene, Panel);
 
+  // helix = new Helix(scene, Segment, birthDate);
+
+
+  if ( nodeJS.isTokenValid() ) {
+
+    helix = new Helix(scene, Segment, new Date( nodeJS.token.body.birthDate ));
+
+    nodeJS.loadData("segment", function ( data ) {
+
+      // Generate segments default as fallback in case of some issues.
+      if ( data.success ) {
+        helix.createSegmentsFromData( data );
+      } else {
+        console.error("No segments found for this user. Something is wrong");
+        helix.genDefaultSegments();
+      }
+
+      // Nested call for loading Panels
+      nodeJS.loadData("panel", function ( data ) {
+        if ( data.success ) {
+
+          panels.createPanelsFromData( data );
+
+          watchDog.init();
+
+        } else {
+          console.log("No panels found for this user.");
+        }
+      });
+
+    });
+
+  } else {
+
+    // Token is not Valid userloging is needed. Show him login screen.
+    overlay.login();
+    overlay.show();
+
+    // Push callback to queue to be executed after successful login.
+    nodeJS.quedCallback.push( function () {
+
+      helix = new Helix(scene, Segment, new Date( nodeJS.token.body.birthDate ));
+
+      nodeJS.loadData("segment", function (data) {
+
+        if ( data.success ) {
+
+          helix.createSegmentsFromData( data );
+
+          // Nested call for loading Panels
+          nodeJS.loadData("panel", function ( data ) {
+            if ( data.success ) {
+
+              panels.createPanelsFromData( data );
+
+              watchDog.init();
+
+            } else {
+              console.log("No panels found for this user.");
+            }
+          });
+
+
+        } else {
+
+          helix.genDefaultSegments();
+
+          // If logged for first time save segments to BE.
+          if ( nodeJS.firstLogin ) {
+            helix.saveSegments();
+          }
+
+          watchDog.init();
+        }
+
+      });
+
+    });
+
+  }
+
+  // helix.genDefaultSegments();
   // this.loadUserData();
 
   this.placeLights();
@@ -103,12 +272,9 @@ Timelix.prototype.init = function ( birthDate ) {
 
   scene.background = new THREE.Color( 0xFFFF00 );
 
-  // SomeHow camera has to be below Helix otherwise it doesnt show segments.
+  // SomeHow camera has to be below helix otherwise it doesnt show segments.
   this.placeCamera();
   this.setControls();
-
-  overlay = new Overlay("Overlay");
-  nodeJS = new NodeJS();
 
   if (debug) {
     createGUI();
@@ -134,8 +300,9 @@ Timelix.prototype.placeCamera = function () {
 
   camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, this.viewDistance);
 
-  camera.position.z = Helix.height/2;
-  camera.position.x = 3000;
+  // camera.position.z = helix.height/2;
+  camera.position.z = 10000;
+  camera.position.x = 0;
   camera.position.y = 0;
 
   scene.add(camera);
@@ -188,7 +355,7 @@ Timelix.prototype.placeGeometry = function () {
 
 Timelix.prototype.setControls = function () {
   controls = new THREE.TrackballControls( camera );
-  controls.target.set( 0, 0, Helix.height/2 );
+  controls.target.set( 0, 0, 500);
   controls.rotateSpeed = 4;
   controls.zoomSpeed = 0.1;
   controls.panSpeed = 0.4;
@@ -282,6 +449,10 @@ Timelix.prototype.loadUserData = function ( ) {
     }
 
   }
+}
+
+Timelix.prototype.checkChanges = function () {
+  this.checker
 
 }
 
@@ -347,7 +518,7 @@ function Segment ( options ) {
   this.cap = undefined;
 
   // Some basic geometry settings
-  this._polygons = 1000;
+  this._polygons = 100;
   this._radialPolygons = 30;
   this._closed = false;
 
@@ -362,7 +533,13 @@ Segment.prototype = {
 
   // Returns options of object for BE saving.
   getOptions : function () {
-    return { options : this.o }
+
+      var exportOptions = Object.assign({}, this.o);
+
+      exportOptions.helix = "";
+
+      return exportOptions;
+
   },
 
   // TBD This should be possible to make smarter???
@@ -379,7 +556,7 @@ Segment.prototype = {
     var distanceB = distanceA;
 
     // Delta T is the step for finding the minimun distance
-    var deltaT = 0.0001;
+    var deltaT = 0.00001;
     var direction = 1;
 
     // Am I under the center or above? If above we have to go down
@@ -456,9 +633,9 @@ Segment.prototype = {
 
     material.side = THREE.DoubleSide;
     // debugger;
-
+    // this._getReducedPolygons( this._polygons )
     const geometry = new THREE.TubeGeometry(this.curve,
-      this._getReducedPolygons( this._polygons ),
+      this._polygons ,
       this.o.thickness,
       this._radialPolygons,
       this._closed);
@@ -620,6 +797,13 @@ function Helix (scene, segmentConst, birthDate) {
     return { radius : this.radius, heightReduce : this.heightReduce }
   },
 
+  unzipOptions : function ( zippedO ) {
+
+    zippedO.helix = this;
+
+   return zippedO;
+  },
+
   getByProp : function ( prop, value) {
 
     infoLog("Looking for prop: "+prop+ " val: "+ value + "In segments");
@@ -645,13 +829,18 @@ function Helix (scene, segmentConst, birthDate) {
         return this.segments[i];
       }
 
-      if ( this.segments[i+1].o.T1 > Tz ) {
-        return this.segments[i];
+      if (this.segments[i+1]) {
+
+        if ( this.segments[i+1].o.T1 > Tz ) {
+          return this.segments[i];
+        }
+
       }
 
 
     }
 
+    console.error("Segment was not found for this Z");
     return undefined;
   },
 
@@ -757,6 +946,55 @@ function Helix (scene, segmentConst, birthDate) {
     return stops;
   },
 
+
+
+  getColorInterval : function ( colorHex1, colorHex2, steps ) {
+
+    var colorInterval = [];
+
+    var R1 = Number.parseInt(colorHex1.substr(2,2), 16);
+    var G1 = Number.parseInt(colorHex1.substr(4,2), 16);
+    var B1 = Number.parseInt(colorHex1.substr(6,2), 16);
+
+    var R2 = Number.parseInt(colorHex2.substr(2,2), 16);
+    var G2 = Number.parseInt(colorHex2.substr(4,2), 16);
+    var B2 = Number.parseInt(colorHex2.substr(6,2), 16);
+
+    var Rd = R2 - R1;
+    var Gd = G2 - G1;
+    var Bd = B2 - B1;
+
+    var Rst = Rd / steps;
+    var Gst = Gd / steps;
+    var Bst = Bd / steps;
+
+    for (var i = 0; i <= steps; i++ ) {
+
+    	var Ri = Math.round(R1 + Rst * i);
+      var padRi = "";
+      if (Ri < 16) {
+        var padRi = "0";
+      }
+
+      var Gi = Math.round(G1 + Gst * i);
+      var padGi = "";
+      if (Gi < 16) {
+        var padGi = "0";
+      }
+
+    	var Bi = Math.round(B1 + Bst * i);
+      var padBi = "";
+      if (Bi < 16) {
+        var padBi = "0";
+      }
+
+      colorInterval.push(Number.parseInt( padRi + Ri.toString(16) + padGi + Gi.toString(16) + padBi + Bi.toString(16), 16));
+    }
+      // console.log(colorInterval);
+      return colorInterval;
+  },
+
+
   // Generating Default list of segments
   genDefaultSegments : function () {
 
@@ -765,6 +1003,14 @@ function Helix (scene, segmentConst, birthDate) {
 
     var segmentsList = [];
 
+    // 0xddf00f 0x8875dc
+    const startColor = "0x" + Math.round(Math.random() * 0xffffff).toString(16);
+    const endColor =  "0x" + Math.round(Math.random() * 0xffffff).toString(16);
+
+    console.log(startColor, endColor);
+
+    var colorList = this.getColorInterval(startColor, endColor, interuptions.length)
+
     for (var i = 0; i < interuptions.length - 1; i++) {
 
       var newOpts = new this.SegmentOptions();
@@ -772,7 +1018,9 @@ function Helix (scene, segmentConst, birthDate) {
       newOpts.T1 = this.getTFromTime( interuptions[i] );
       newOpts.T2 = this.getTFromTime( interuptions[i+1] );
       newOpts.click = "Segment #"+i;
-      newOpts.color = Math.random() * 0xffffff;
+      // newOpts.color = Math.random() * 0xffffff;
+      newOpts.color = colorList[i];
+      // console.log(colorList[i], colorList[i].toString(16));
 
       if ( i == 0 ) {
         newOpts.bottomCap = true;
@@ -859,6 +1107,63 @@ function Helix (scene, segmentConst, birthDate) {
 
     }
 
+  },
+
+  //
+  createSegmentsFromData : function ( data ) {
+
+    var uuids = [];
+
+    if ( !data.success ) {
+      console.log("No data for this user.");
+      return;
+    }
+
+    var recievedSegments = data.message;
+
+    // Get list of UUIDs
+    for (var i=0, len = this.segments.length; i < len; i++ ) {
+      uuids.push(this.segments[i]["o"]["uuid"]);
+    }
+
+    for (var i=0, len = recievedSegments.length; i < len; i++ ) {
+
+      // Check if loaded segment is not already in scene
+      if ( uuids.indexOf(recievedSegments[i]["uuid"]) < 0 ) {
+
+        var unzipedOptions = this.unzipOptions(JSON.parse(recievedSegments[i]["options"]));
+
+        const newSegment = this.addSegmentToScene( unzipedOptions );
+        this.segments.push( newSegment );
+
+      }
+
+    }
+
+  },
+
+  saveSegment : function ( uuid ) {
+
+    var data = [];
+
+    var options = this.getByProp("uuid", uuid)["getOptions"]();
+    data.push({ type: "segment", uuid : options.uuid, o : options })
+
+    nodeJS.saveData( data );
+  },
+
+
+  saveSegments : function () {
+
+    var data = [];
+
+    for (var i=0, len = this.segments.length; i < len; i++ ) {
+
+      var options = this.segments[i]["getOptions"]();
+      data.push({ type: "segment", uuid : options.uuid, o : options })
+    }
+
+    nodeJS.saveData( data );
   },
 
   // remove segment from segmentsG and scene
@@ -955,7 +1260,10 @@ Panel.prototype = {
     exportOptions.buddy = this.o.buddy.uuid;
     exportOptions.centerPosition = { x: this.o.centerPosition.x, y: this.o.centerPosition.y, z:this.o.centerPosition.z };
     exportOptions.panelPosition = { x: this.o.panelPosition.x, y: this.o.panelPosition.y, z:this.o.panelPosition.z };
-    exportOptions.rotation = { x: this.o.rotation.x, y: this.o.rotation.y, z:this.o.rotation.z };
+    exportOptions.rotation = { x: this.o.rotation.x, y: helix.getAngle( this.o.panelPosition ), z:this.o.rotation.z };
+
+    // var panelAngleY = helix.getAngle( panel.o.panelPosition );
+
     exportOptions.html = this.o.html.innerHTML;
 
     return exportOptions;
@@ -1030,7 +1338,7 @@ Panel.prototype = {
 
     var pointC = new THREE.Vector3( this.o.centerPosition.x, this.o.centerPosition.y, this.o.centerPosition.z+10 );
     // this.o.buddy.curve.getPoint(
-    //   Helix.getTFromZ(this.o.centerPosition.z),
+    //   helix.getTFromZ(this.o.centerPosition.z),
     //   true,
     //   this.o.offsetX + 100,
     //   this.o.offsetY + 100);
@@ -1143,14 +1451,14 @@ Panel.prototype = {
       infoLog("timeLabel found");
       var segment = this.o.buddy;
       var timeLabel = div.getElementsByClassName('timeLabel')[0];
-      timeLabel.innerHTML = Helix.getNiceTimeFromZ(this.o.centerPosition.z);
+      timeLabel.innerHTML = helix.getNiceTimeFromZ(this.o.centerPosition.z);
     }
 
     //  Start New Segment button
     if ( div.getElementsByClassName('startBtn')[0] ) {
       infoLog("startBtn found");
       var startBtn = div.getElementsByClassName('startBtn')[0];
-      startBtn.setAttribute("onclick", "startNewSegmentWRP('" + Helix.getTFromZ(this.o.centerPosition.z) + "','" + this.o.uuid + "')");
+      startBtn.setAttribute("onclick", "startNewSegmentWRP('" + helix.getTFromZ(this.o.centerPosition.z) + "','" + this.o.uuid + "')");
     }
 
     //  Delete Button
@@ -1206,11 +1514,11 @@ Panel.prototype = {
 
     var segment = this.o.buddy;
 
-    // var helixCenter = segment.getPoint(Helix.getTFromZ(this.o.timePosition), true);
+    // var helixCenter = segment.getPoint(helix.getTFromZ(this.o.timePosition), true);
 
     this.ring.position.copy( this.o.centerPosition );
 
-    var helixVector = segment.curve.getPoint(Helix.getTFromZ(this.o.centerPosition.z) + 0.0001, true);
+    var helixVector = segment.curve.getPoint(helix.getTFromZ(this.o.centerPosition.z) + 0.0001, true);
 
     this.ring.lookAt( helixVector );
   },
@@ -1240,7 +1548,7 @@ Panel.prototype = {
   // Return panel position computed from center position and offsets.
   _getPanelPosition : function ( ) {
     return this.o.buddy.curve.getPoint(
-      Helix.getTFromZ(this.o.centerPosition.z),
+      helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX,
       this.o.offsetY);
@@ -1266,7 +1574,7 @@ Panel.prototype = {
     this._updateSize--;
   },
 
-  // Offsets the panel so its enlarged in direction from center of Helix.
+  // Offsets the panel so its enlarged in direction from center of helix.
   // means less probability to go thru helix when img loaded.
   setExcentricSize : function ( w, h ) {
 
@@ -1290,7 +1598,7 @@ Panel.prototype = {
       this.o.html.style.height = h;
 
       // var pol = 1;
-      // if ( this.o.rotation.y == Helix.getAngle ( this.o.panelPosition ) ) { pol = -1 };
+      // if ( this.o.rotation.y == helix.getAngle ( this.o.panelPosition ) ) { pol = -1 };
 
       // this.moveOffset( (this.o.width-w) / -2 , (this.o.height-h) / 2 );
 
@@ -1393,7 +1701,7 @@ Panel.prototype = {
 
     // Getting the edge point from helix functing
     var edgePoint = this.o.buddy.curve.getPoint(
-      Helix.getTFromZ(this.o.centerPosition.z),
+      helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX + deltaOffsetX,
       this.o.offsetY + deltaOffsetY);
@@ -1506,7 +1814,7 @@ resizeToNewCorner : function ( point ) {
     var dOffsets = this.getDeltaOffsets( this._vectorBuffer.vA, this._vectorBuffer.vB );
 
     // Check if the panel is mirrored or not.
-    if ( this.o.rotation.y == Helix.getAngle ( this.o.panelPosition ) ) { pol = -1 };
+    if ( this.o.rotation.y == helix.getAngle ( this.o.panelPosition ) ) { pol = -1 };
 
     this._width = this._width - dOffsets.dX * pol;
     this._height = this._height - dOffsets.dY;
@@ -1643,7 +1951,7 @@ Panels.prototype = {
 
   // Unzipping options from BE. Mean recreates object based on ziped data.
   unzipOptions : function ( zippedO ) {
-    console.log(zippedO);
+    // console.log(zippedO);
 
     zippedO.centerPosition = new THREE.Vector3 ( zippedO.centerPosition.x, zippedO.centerPosition.y, zippedO.centerPosition.z );
     zippedO.panelPosition = new THREE.Vector3 ( zippedO.panelPosition.x, zippedO.panelPosition.y, zippedO.panelPosition.z );
@@ -1660,9 +1968,38 @@ Panels.prototype = {
 
 
     // Is possible that buddy (usualy segment) was not loaded yet. Or doesnt exist. So if not found in scene. Let get default on based on panel position.
-    zippedO.buddy = scene.getObjectByProperty( "uuid", zippedO.buddy ) || Helix.getSegmentOnZ( zippedO.centerPosition.z );
+    zippedO.buddy = scene.getObjectByProperty( "uuid", zippedO.buddy ) || helix.getSegmentOnZ( zippedO.centerPosition.z );
 
    return zippedO;
+  },
+
+  createPanelsFromData : function ( data ) {
+
+      var uuids = [];
+
+      if (!data.success) {
+        console.log("No data for this user.");
+        return;
+      }
+
+      var panelsData = data.message;
+
+      for (var i=0, len = this.objects.length; i < len; i++ ) {
+        uuids.push(this.objects[i]["o"]["uuid"]);
+      }
+
+      for (var i=0, len = panelsData.length; i < len; i++ ) {
+
+        // Check if loaded panel is not already in scene
+        if ( uuids.indexOf(panelsData[i]["uuid"]) < 0 ) {
+
+          var unzipedOptions = this.unzipOptions(JSON.parse(panelsData[i]["options"]));
+          this.createPanel( unzipedOptions );
+
+        }
+
+      }
+
   },
 
   // Removing panel calls BE and then it removes panel locally
@@ -1762,7 +2099,7 @@ Panels.prototype = {
     // Rotation
     if ( action.indexOf('leftClick') >= 0 ) {
 
-      newOpts.rotation = new THREE.Vector3( Math.PI/2, Helix.getAngle( centerPoint ), 0);
+      newOpts.rotation = new THREE.Vector3( Math.PI/2, helix.getAngle( centerPoint ), 0);
 
     } else {
 
@@ -1799,6 +2136,33 @@ Panels.prototype = {
     return newPanel;
   },
 
+  savePanel : function ( uuid ) {
+    var data = [];
+
+    var options = panels.getByProp("uuid", uuid)["getOptions"]();
+    data.push({ type: "panel", uuid : options.uuid, o : options })
+
+    nodeJS.saveData( data );
+  },
+
+  savePanels : function ( uuids ) {
+
+    var data = [];
+
+    if (uuids)
+
+    for (var i=0, len = panels.objects.length; i < len; i++ ) {
+      var options = panels.objects[i]["getOptions"]();
+
+      // Dont save time panel.
+      if ( options.template != "mouseoverSegment" ) {
+        data.push({ type: "panel", uuid : options.uuid, o : options })
+      };
+
+    }
+
+    nodeJS.saveData( data );
+  },
 
   // Removing last panel
   removeLastPanel : function ( ) {
@@ -1810,31 +2174,31 @@ Panels.prototype = {
   // detects if media panel should be mirrored in order to face toward camera
   faceTowardCamera : function ( ) {
 
-    var cameraAngleY = Helix.getAngle( camera.position );
+    var cameraAngleY = helix.getAngle( camera.position );
 
     for (var i = 0; i <  this.objects.length; i++) {
 
-      if (this.objects[i].o.template == "leftClickSegment") {
+      if (this.objects[i].o.template != "leftClickSegment") { continue; };
 
-        var panel = this.objects[i];
-        var panelRotY = panel.o.rotation.y;
-        var panelAngleY = Helix.getAngle( panel.o.panelPosition );
+      var panel = this.objects[i];
+      var panelRotY = panel.o.rotation.y;
+      var panelAngleY = helix.getAngle( panel.o.panelPosition );
 
-        var diffAngle = ( Math.PI - cameraAngleY );
+      var diffAngle = ( Math.PI - cameraAngleY );
 
-        var correctedAngle = panelAngleY + diffAngle;
+      var correctedAngle = panelAngleY + diffAngle;
 
-        if ( correctedAngle > Math.PI && correctedAngle < Math.PI*2 || correctedAngle < 0) {
-          if ( panelRotY != panelAngleY ) {
-            panel.setRotationY( panelAngleY );
-          }
-        } else {
-          if ( Math.floor(panelRotY * 100 ) === Math.floor( panelAngleY * 100 ) ) {
-            panel.switchYRotation();
-          }
+      if ( correctedAngle > Math.PI && correctedAngle < Math.PI*2 || correctedAngle < 0) {
+        if ( panelRotY != panelAngleY ) {
+          panel.setRotationY( panelAngleY );
         }
-
+      } else {
+        if ( Math.floor(panelRotY * 100 ) === Math.floor( panelAngleY * 100 ) ) {
+          panel.switchYRotation();
+        }
       }
+
+      // }
 
     }
   }
@@ -1844,232 +2208,232 @@ Panels.prototype = {
 //
 ///////////////////////////////////////////////////////////////////
 
-function init( birthDate ){
-
-  const viewDistance = 50000;
-
-  placeEventListeners();
-
-  raycaster = new THREE.Raycaster();
-  raycaster.near = 1;
-  raycaster.far = viewDistance;
-
-// PROTO
-  // mouse = new THREE.Vector2();
-
-  // // TBD clean this up.
-  // mouse.dragging = false;
-  // mouse.resizing = false;
-
-  // Should be remove as it is not needed anymore?
-  // mouse.leftCliked = 0;
-  // mouse.rightCliked = 0;
-
-  renderer = createGlRenderer();
-  cssRenderer = createCssRenderer();
-
-  document.body.appendChild(cssRenderer.domElement);
-  // This is important so you can click on embeded html!
-  renderer.domElement.style.pointerEvents = "none";
-
-  cssRenderer.domElement.appendChild(renderer.domElement);
-
-  // DEBUG
-  cssRenderer.domElement.appendChild( stats.dom );
-  // DEBUG
-
-  scene = new THREE.Scene();
-  cssScene = new THREE.Scene();
-
-  panels = new Panels(scene, cssScene, Panel);
-
-  Helix = new Helix(scene, Segment, birthDate);
-
-  Helix.genDefaultSegments();
-
-  // set some camera attributes
-  var VIEW_ANGLE = 45,
-    ASPECT = window.innerWidth / window.innerHeight,
-    // should be higher to improve zbuffer resolution.
-    NEAR = 100;
-
-  camera = new THREE.PerspectiveCamera(
-      VIEW_ANGLE,
-      ASPECT,
-      NEAR,
-      viewDistance);
-
-  camera.position.z = Helix.height/2;
-  camera.position.x = 3000;
-  camera.position.y = 0;
-
-  // Controls
-  controls = new THREE.TrackballControls( camera );
-  controls.target.set( 0, 0, Helix.height/2 );
-  controls.rotateSpeed = 4;
-  controls.zoomSpeed = 0.1;
-  controls.panSpeed = 0.4;
-  controls.noZoom = false;
-  controls.addEventListener( 'change', render );
-
-  overlay = new Overlay("Overlay");
-  // overlay.fastHide();
-
-  nodeJS = new NodeJS();
-
-  // camera.rotation.x = Math.PI/2;
-  scene.background = new THREE.Color( 0xFFFF00 );
-  scene.add(camera);
-
-  // Lights
-  light = new THREE.DirectionalLight( 0xffffff );
-	light.position.set( 10, 20, 30 );
-	scene.add( light );
-
-	light = new THREE.DirectionalLight( 0xffffff );
-	light.position.set( -10, -20, -30 );
-	scene.add( light );
-
-	light = new THREE.AmbientLight( 0xffffff, 1, 5000  );
-	scene.add( light );
-
-  var map = new THREE.TextureLoader().load( 'img/UV_Grid_Sm.jpg' );
-  				map.wrapS = map.wrapT = THREE.RepeatWrapping;
-  				map.anisotropy = 16;
-
-
-  // Some geometry //
-  // var lineMaterial = new THREE.LineDashedMaterial({
-  //     dashSize : 10,
-  //     gapSize : 5,
-  //     color: 0x000000
-  // });
-  // var lineGeometry = new THREE.Geometry();
-  // lineGeometry.vertices.push(new THREE.Vector3(0,0,0));
-  // lineGeometry.vertices.push(new THREE.Vector3(500,300,100));
-  // var line = new THREE.Line(lineGeometry, lineMaterial);
-  //
-  // scene.add(line);
-
-  // group = new THREE.Group();
-  // scene.add(group);
-
-  // Some box
-  // var geometry = new THREE.BoxGeometry( 100, 50, 25 );
-  // var material = new THREE.MeshBasicMaterial( { color: 0xffffff} );
-  // material.side = THREE.DoubleSide;
-  // cube = new THREE.Mesh( geometry, material );
-
-  // Helix
-
-
-  // THREE.SceneUtils.createMultiMaterialObject( object, [
-  // 				new THREE.MeshLambertMaterial({
-  // 					color: 0x000000
-  // 				}),
-  // 				new THREE.MeshBasicMaterial({
-  // 					color: 0xFF0000,
-  // 					opacity: 0.3,
-  // 					wireframe: true,
-  // 					transparent: true
-  // 			})]);
-
-  // scene.add(cube);
-
-
-  // Spehere
-  geometry = new THREE.SphereGeometry( 1 );
-	material = new THREE.MeshBasicMaterial( { color: 0xff0000 });
-  sphereInter = new THREE.Mesh( geometry, material );
-  sphereInter.visible = false;
-  scene.add( sphereInter );
-
-  // Donut
-  // geometry = new THREE.TorusGeometry(8, 1, 20, 100);
-  // // material.emissive.setRGB(0.8,0.1,0.1);
-  // // material.specular.setRGB(0.9,0.9,0.9);
-  // donutMesh = new THREE.Mesh( geometry, material );
-  // scene.add( donutMesh );
-
-  // Circle
-  geometry = new THREE.CircleGeometry( 20, 64);
-  material = new THREE.MeshBasicMaterial( { map:map, color: 0xff0000 });
-  material.side = THREE.DoubleSide;
-  circleTest = new THREE.Mesh( geometry, material );
-  // circleTest.visible = false;
-  // circleTest.rotation.x =  Math.PI / 2;
-  scene.add( circleTest );
-
-  if (debug) {
-    createGUI();
-  }
-
-  // var planeMesh = addPanelToScene(scene);
-
-
-  // cube.rotateX(90);
-  // axes
-  axes = new THREE.AxisHelper( 100 );
-  scene.add( axes );
-
-  function placeEventListeners (){
-
-  window.addEventListener( 'resize', onWindowResize, false );
-  document.addEventListener( 'mousemove', onMouseMove, false );
-  document.addEventListener( 'mousedown', function (e) { mouseDown(e) }, false );
-
-  // function(e) {
-  //   if (e.which == 1) {
-  //     console.log("leftDOWN");
-  //     mouse.leftCliked = true;
-  //     leftCliked(e);
-  //   } else if (e.which == 3) {
-  //     mouse.rightCliked = true;
-  //     rightCliked(e);
-  //   }
-  // }
-
-  document.addEventListener( 'mouseup', function(e) {
-    if (e.which == 1) {
-      // console.log("leftUP");
-      // mouse.leftCliked = false;
-
-      mouse.dragging = false;
-      mouse.resizing = false;
-
-      controls.enabled = true;
-
-      if (mouse.activePanel) {
-        // mouse.activePanel.flushOffsetBuffer();
-        mouse.activePanel._vectorBuffer.clear();
-      }
-    } else if (e.which == 3) {
-
-      // mouse.rightCliked = false;
-
-    }
-  }, false );
-
-  document.addEventListener( 'keydown', function (e) {
-    var key = e.which || e.keyCode;
-    if (key === 27) {
-      if (overlay.visible) {
-        overlay.purgeHide();
-        return;
-      }
-      panels.removeLastPanel();
-    }
-
-    // if (key === 106) {
-    //   panels.removeLastPanel();
-    //
-    // }
-  }, false );
-
-
-}
-
-}
+// function init( birthDate ){
+//
+//   const viewDistance = 50000;
+//
+//   placeEventListeners();
+//
+//   raycaster = new THREE.Raycaster();
+//   raycaster.near = 1;
+//   raycaster.far = viewDistance;
+//
+// // PROTO
+//   // mouse = new THREE.Vector2();
+//
+//   // // TBD clean this up.
+//   // mouse.dragging = false;
+//   // mouse.resizing = false;
+//
+//   // Should be remove as it is not needed anymore?
+//   // mouse.leftCliked = 0;
+//   // mouse.rightCliked = 0;
+//
+//   renderer = createGlRenderer();
+//   cssRenderer = createCssRenderer();
+//
+//   document.body.appendChild(cssRenderer.domElement);
+//   // This is important so you can click on embeded html!
+//   renderer.domElement.style.pointerEvents = "none";
+//
+//   cssRenderer.domElement.appendChild(renderer.domElement);
+//
+//   // DEBUG
+//   cssRenderer.domElement.appendChild( stats.dom );
+//   // DEBUG
+//
+//   scene = new THREE.Scene();
+//   cssScene = new THREE.Scene();
+//
+//   panels = new Panels(scene, cssScene, Panel);
+//
+//   helix = new helix(scene, Segment, birthDate);
+//
+//   helix.genDefaultSegments();
+//
+//   // set some camera attributes
+//   var VIEW_ANGLE = 45,
+//     ASPECT = window.innerWidth / window.innerHeight,
+//     // should be higher to improve zbuffer resolution.
+//     NEAR = 100;
+//
+//   camera = new THREE.PerspectiveCamera(
+//       VIEW_ANGLE,
+//       ASPECT,
+//       NEAR,
+//       viewDistance);
+//
+//   camera.position.z = helix.height/2;
+//   camera.position.x = 3000;
+//   camera.position.y = 0;
+//
+//   // Controls
+//   controls = new THREE.TrackballControls( camera );
+//   controls.target.set( 0, 0, helix.height/2 );
+//   controls.rotateSpeed = 4;
+//   controls.zoomSpeed = 0.1;
+//   controls.panSpeed = 0.4;
+//   controls.noZoom = false;
+//   controls.addEventListener( 'change', render );
+//
+//   overlay = new Overlay("Overlay");
+//   // overlay.fastHide();
+//
+//   nodeJS = new NodeJS();
+//
+//   // camera.rotation.x = Math.PI/2;
+//   scene.background = new THREE.Color( 0xFFFF00 );
+//   scene.add(camera);
+//
+//   // Lights
+//   light = new THREE.DirectionalLight( 0xffffff );
+// 	light.position.set( 10, 20, 30 );
+// 	scene.add( light );
+//
+// 	light = new THREE.DirectionalLight( 0xffffff );
+// 	light.position.set( -10, -20, -30 );
+// 	scene.add( light );
+//
+// 	light = new THREE.AmbientLight( 0xffffff, 1, 5000  );
+// 	scene.add( light );
+//
+//   var map = new THREE.TextureLoader().load( 'img/UV_Grid_Sm.jpg' );
+//   				map.wrapS = map.wrapT = THREE.RepeatWrapping;
+//   				map.anisotropy = 16;
+//
+//
+//   // Some geometry //
+//   // var lineMaterial = new THREE.LineDashedMaterial({
+//   //     dashSize : 10,
+//   //     gapSize : 5,
+//   //     color: 0x000000
+//   // });
+//   // var lineGeometry = new THREE.Geometry();
+//   // lineGeometry.vertices.push(new THREE.Vector3(0,0,0));
+//   // lineGeometry.vertices.push(new THREE.Vector3(500,300,100));
+//   // var line = new THREE.Line(lineGeometry, lineMaterial);
+//   //
+//   // scene.add(line);
+//
+//   // group = new THREE.Group();
+//   // scene.add(group);
+//
+//   // Some box
+//   // var geometry = new THREE.BoxGeometry( 100, 50, 25 );
+//   // var material = new THREE.MeshBasicMaterial( { color: 0xffffff} );
+//   // material.side = THREE.DoubleSide;
+//   // cube = new THREE.Mesh( geometry, material );
+//
+//   // helix
+//
+//
+//   // THREE.SceneUtils.createMultiMaterialObject( object, [
+//   // 				new THREE.MeshLambertMaterial({
+//   // 					color: 0x000000
+//   // 				}),
+//   // 				new THREE.MeshBasicMaterial({
+//   // 					color: 0xFF0000,
+//   // 					opacity: 0.3,
+//   // 					wireframe: true,
+//   // 					transparent: true
+//   // 			})]);
+//
+//   // scene.add(cube);
+//
+//
+//   // Spehere
+//   geometry = new THREE.SphereGeometry( 1 );
+// 	material = new THREE.MeshBasicMaterial( { color: 0xff0000 });
+//   sphereInter = new THREE.Mesh( geometry, material );
+//   sphereInter.visible = false;
+//   scene.add( sphereInter );
+//
+//   // Donut
+//   // geometry = new THREE.TorusGeometry(8, 1, 20, 100);
+//   // // material.emissive.setRGB(0.8,0.1,0.1);
+//   // // material.specular.setRGB(0.9,0.9,0.9);
+//   // donutMesh = new THREE.Mesh( geometry, material );
+//   // scene.add( donutMesh );
+//
+//   // Circle
+//   geometry = new THREE.CircleGeometry( 20, 64);
+//   material = new THREE.MeshBasicMaterial( { map:map, color: 0xff0000 });
+//   material.side = THREE.DoubleSide;
+//   circleTest = new THREE.Mesh( geometry, material );
+//   // circleTest.visible = false;
+//   // circleTest.rotation.x =  Math.PI / 2;
+//   scene.add( circleTest );
+//
+//   if (debug) {
+//     createGUI();
+//   }
+//
+//   // var planeMesh = addPanelToScene(scene);
+//
+//
+//   // cube.rotateX(90);
+//   // axes
+//   axes = new THREE.AxisHelper( 100 );
+//   scene.add( axes );
+//
+//   function placeEventListeners (){
+//
+//   window.addEventListener( 'resize', onWindowResize, false );
+//   document.addEventListener( 'mousemove', onMouseMove, false );
+//   document.addEventListener( 'mousedown', function (e) { mouseDown(e) }, false );
+//
+//   // function(e) {
+//   //   if (e.which == 1) {
+//   //     console.log("leftDOWN");
+//   //     mouse.leftCliked = true;
+//   //     leftCliked(e);
+//   //   } else if (e.which == 3) {
+//   //     mouse.rightCliked = true;
+//   //     rightCliked(e);
+//   //   }
+//   // }
+//
+//   document.addEventListener( 'mouseup', function(e) {
+//     if (e.which == 1) {
+//       // console.log("leftUP");
+//       // mouse.leftCliked = false;
+//
+//       mouse.dragging = false;
+//       mouse.resizing = false;
+//
+//       controls.enabled = true;
+//
+//       if (mouse.activePanel) {
+//         // mouse.activePanel.flushOffsetBuffer();
+//         mouse.activePanel._vectorBuffer.clear();
+//       }
+//     } else if (e.which == 3) {
+//
+//       // mouse.rightCliked = false;
+//
+//     }
+//   }, false );
+//
+//   document.addEventListener( 'keydown', function (e) {
+//     var key = e.which || e.keyCode;
+//     if (key === 27) {
+//       if (overlay.visible) {
+//         overlay.purgeHide();
+//         return;
+//       }
+//       panels.removeLastPanel();
+//     }
+//
+//     // if (key === 106) {
+//     //   panels.removeLastPanel();
+//     //
+//     // }
+//   }, false );
+//
+//
+// }
+//
+// }
 
 
 ///////////////////////////////////////////////////////////////////
@@ -2081,7 +2445,7 @@ function init( birthDate ){
 /////////////////////// MOUSE CLICK ////////////////////////////////
 
 function mouseDown ( e ) {
-  // console.log(Helix.getAngle(camera.position) + ": camera rotation");
+  // console.log(helix.getAngle(camera.position) + ": camera rotation");
 
   var action = "";
 
@@ -2189,18 +2553,18 @@ function doAction (action, onObject, mousePointer) {
 
     // segment.TALK();
     // if we are drawing new segment dont place mediaPanel
-    if ( Helix.segmentBuffer.active ) {
+    if ( helix.segmentBuffer.active ) {
 
-      Helix.segmentBuffer.T2 = Helix.getTFromZ(centerPoint.z);
+      helix.segmentBuffer.T2 = helix.getTFromZ(centerPoint.z);
 
-      if ( Helix.getTFromZ(centerPoint.z) < Helix.segmentBuffer.T1) {
-        Helix.segmentBuffer.T2 = Helix.segmentBuffer.T1;
-        Helix.segmentBuffer.T1 = Helix.getTFromZ(centerPoint.z);
+      if ( helix.getTFromZ(centerPoint.z) < helix.segmentBuffer.T1) {
+        helix.segmentBuffer.T2 = helix.segmentBuffer.T1;
+        helix.segmentBuffer.T1 = helix.getTFromZ(centerPoint.z);
       }
 
-      Helix.segmentBuffer.active = false;
+      helix.segmentBuffer.active = false;
 
-      Helix.pushSegment();
+      helix.pushSegment();
     } else {
 
       var panel = panels.placePanel( action, segment, mousePointer, false );
@@ -2230,6 +2594,14 @@ function animate() {
     }
 
   }
+
+
+  frames++;
+
+  if ( frames > 200 ) {
+    watchDog.scanForChanges();
+    frames = 0;
+  }
   //
   // setTimeout( function() {
   //
@@ -2238,7 +2610,9 @@ function animate() {
   //  }, 10000 / 30 );
   //
   // if ( !pauseRaycaster ) {
-    controls.update();
+
+  controls.update();
+
   // }
 
   render();
@@ -2303,8 +2677,8 @@ function render() {
           var timePanel = panels.placePanel( action, segment, intersects[ i ].point, true);
 
           // Segment preview
-          // Helix.segmentBuffer.putT( Helix.getTFromZ( intersects[ 0 ].z) );
-          // Helix.segmentBuffer.shadowSegment.updateGeometry();
+          // helix.segmentBuffer.putT( helix.getTFromZ( intersects[ 0 ].z) );
+          // helix.segmentBuffer.shadowSegment.updateGeometry();
 
           break;
 

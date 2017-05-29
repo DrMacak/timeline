@@ -35,7 +35,10 @@ Overlay.prototype.show = function () {
   // this.el.style.visibility = "visible";
   this.visible = true;
   pauseRaycaster = true;
-  controls.enabled = false;
+
+  if (controls) {
+    controls.enabled = false;
+  }
   // To fully disable controls check also dragging/resizing.
   // console.log("SHOW");
 }
@@ -46,7 +49,10 @@ Overlay.prototype.hide = function () {
 
   this.visible = false;
   pauseRaycaster = false;
-  controls.enabled = true;
+
+  if (controls) {
+    controls.enabled = true;
+  }
 
 }
 
@@ -60,7 +66,11 @@ Overlay.prototype.fastHide = function () {
   this.el.style.display = "none";
   this.visible = false;
   pauseRaycaster = false;
-  controls.enabled = true;
+
+  if (controls) {
+    controls.enabled = true;
+  }
+  
 }
 
 Overlay.prototype.pushHtml = function ( html ) {
