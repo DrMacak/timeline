@@ -21,9 +21,9 @@ const events = {
   "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false;  } },
 
   // DEBUG
-  "#BTN1" : { "event" : "click", "func" : function() { nodeJS.loadData( "all", function (data) { console.log(data); } ); } },
+  "#BTN1" : { "event" : "click", "func" : function() { panels.recalculatePositions() } },
   "#BTN2" : { "event" : "click", "func" : function() { nodeJS.loadData("panel", function (data) { panels.createPanelsFromData(data); } ); } },
-  "#BTN3" : { "event" : "click", "func" : function() { nodeJS.logOut() } }
+  "#BTN3" : { "event" : "click", "func" : function() { overlay.loader(); } }
   // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
 };
@@ -62,34 +62,34 @@ for ( var key in events ) {
 //   nodeJS.saveData( data );
 // }
 
-function loadPanels ( data ) {
-
-  var uuids = [];
-
-  if (!data.success) {
-    console.log("No data for this user.");
-    return;
-  }
-
-  var objects = data.message;
-
-  for (var i=0, len = panels.objects.length; i < len; i++ ) {
-    uuids.push(panels.objects[i]["o"]["uuid"]);
-  }
-
-  for (var i=0, len = objects.length; i < len; i++ ) {
-
-    // Check if loaded panel is not already in scene
-    if ( uuids.indexOf(objects[i]["uuid"]) < 0 ) {
-
-      var unzipedOptions = panels.unzipOptions(JSON.parse(objects[i]["options"]));
-      panels.createPanel( unzipedOptions );
-
-    }
-
-  }
-
-}
+// function loadPanels ( data ) {
+//
+//   var uuids = [];
+//
+//   if (!data.success) {
+//     console.log("No data for this user.");
+//     return;
+//   }
+//
+//   var objects = data.message;
+//
+//   for (var i=0, len = panels.objects.length; i < len; i++ ) {
+//     uuids.push(panels.objects[i]["o"]["uuid"]);
+//   }
+//
+//   for (var i=0, len = objects.length; i < len; i++ ) {
+//
+//     // Check if loaded panel is not already in scene
+//     if ( uuids.indexOf(objects[i]["uuid"]) < 0 ) {
+//
+//       var unzipedOptions = panels.unzipOptions(JSON.parse(objects[i]["options"]));
+//       panels.createPanel( unzipedOptions );
+//
+//     }
+//
+//   }
+//
+// }
 
 function createImage ( src, panelHtml, name ) {
 
@@ -109,7 +109,7 @@ function createImage ( src, panelHtml, name ) {
   // Add name of file to list of files.
   panel.o.files.push( name );
 
-  panel.saveToNode();
+  // panel.saveToNode();
 }
 
 function createVideo ( src, panelHtml, name ) {

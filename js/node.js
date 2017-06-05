@@ -46,7 +46,7 @@ NodeJS.prototype.init = function( ) {
   //   return;
   // };
 
-  overlay.fastHide();
+  // overlay.fastHide();
 }
 
 NodeJS.prototype.testConnection = function( ) {
@@ -170,7 +170,7 @@ NodeJS.prototype.createAccount = function ( form ) {
           // Set overlay header to welcom new user
           overlay.setHeader( "Welcome to Timelix newbie " + _this.token.body.username + "!");
 
-          this.firstLogin = true;
+          _this.firstLogin = true;
 
           // Check if we dont have any callbacks qued
           if ( _this.quedCallback.length != 0 ) {

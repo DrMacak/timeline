@@ -70,7 +70,7 @@ Overlay.prototype.fastHide = function () {
   if (controls) {
     controls.enabled = true;
   }
-  
+
 }
 
 Overlay.prototype.pushHtml = function ( html ) {
@@ -137,5 +137,17 @@ Overlay.prototype.loginHideCreateBtn = function () {
   var createBtn = this.content.getElementsByClassName("btn-create")[0];
   createBtn.style.visibility = "hidden";
   createBtn.style.height = "0px";
+
+}
+
+Overlay.prototype.loader = function () {
+
+  var self = this;
+
+  templator.getTemplate( "loader", function ( data ) {
+
+          self.content.innerHTML = data;
+          self.show();
+  });
 
 }
