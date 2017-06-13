@@ -8,16 +8,16 @@ function NodeJS ( url ) {
   this.createUserRoute = "createUser";
 
   this.firstLogin = false;
-  this.quedCallback = [];
-  // this.quedCallback.prototype.run =  function () {
-  //   if ( _this.quedCallback.length != 0 ) {
+  this.queuedCallback = [];
+  // this.queuedCallback.prototype.run =  function () {
+  //   if ( _this.queuedCallback.length != 0 ) {
   //
-  //     for (var i = 0; i < _this.quedCallback.length; i++ ) {
-  //       _this.quedCallback[i]();
+  //     for (var i = 0; i < _this.queuedCallback.length; i++ ) {
+  //       _this.queuedCallback[i]();
   //
   //     }
   //
-  //     _this.quedCallback = [];
+  //     _this.queuedCallback = [];
   //
   //   }
   // }
@@ -88,14 +88,14 @@ NodeJS.prototype.sendLogin = function ( form ) {
 
         this.firstLogin = false;
 
-        if ( _this.quedCallback.length != 0 ) {
+        if ( _this.queuedCallback.length != 0 ) {
 
-          for (var i = 0; i < _this.quedCallback.length; i++ ) {
-            _this.quedCallback[i]();
+          for (var i = 0; i < _this.queuedCallback.length; i++ ) {
+            _this.queuedCallback[i]();
 
           }
 
-          _this.quedCallback = [];
+          _this.queuedCallback = [];
 
         }
 
@@ -173,13 +173,13 @@ NodeJS.prototype.createAccount = function ( form ) {
           _this.firstLogin = true;
 
           // Check if we dont have any callbacks qued
-          if ( _this.quedCallback.length != 0 ) {
+          if ( _this.queuedCallback.length != 0 ) {
 
-            for (var i = 0; i < _this.quedCallback.length; i++ ) {
-              _this.quedCallback[i]();
+            for (var i = 0; i < _this.queuedCallback.length; i++ ) {
+              _this.queuedCallback[i]();
             }
 
-            _this.quedCallback = [];
+            _this.queuedCallback = [];
 
           }
 
@@ -224,10 +224,10 @@ NodeJS.prototype.createAccount = function ( form ) {
 
 NodeJS.prototype.uploadData = function ( inputEl, type ) {
 
-  // In case token is not valid que this function call to quedCallback to fire it after successful login.
-  // quedCallback is selfInvoked closure to store input data
+  // In case token is not valid que this function call to queuedCallback to fire it after successful login.
+  // queuedCallback is selfInvoked closure to store input data
   if ( !this.isTokenValid() ) {
-    this.quedCallback.push( ( function ( _inputEl, _type, _this ) { return function () { _this.uploadData( _inputEl, _type ) } } )( inputEl, type, this ) );
+    this.queuedCallback.push( ( function ( _inputEl, _type, _this ) { return function () { _this.uploadData( _inputEl, _type ) } } )( inputEl, type, this ) );
     overlay.login();
     overlay.setHeader("Your session expired");
     overlay.show();
@@ -240,7 +240,7 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
 
   if ( !inputEl.files ) { return; }
 
-    const HtmlPanel = getMyHtmlPanel( inputEl );
+    const HtmlPanel = panels.getHtmlPanelByElement( inputEl );
 
     var formData = new FormData();
 
@@ -316,7 +316,7 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
 // NodeJS.prototype.removeFile = function ( fileName, panel3D ) {
 //
 //   if ( !this.isTokenValid() ) {
-//     this.quedCallback.push( ( function ( _fileName, _panel3D, _this ) { return function () { _this.removeFile( _fileName, _panel3D ) } } )( fileName, panel3D, this ) );
+//     this.queuedCallback.push( ( function ( _fileName, _panel3D, _this ) { return function () { _this.removeFile( _fileName, _panel3D ) } } )( fileName, panel3D, this ) );
 //     overlay.login();
 //     overlay.setHeader("Your session expired");
 //     overlay.show();
@@ -385,7 +385,11 @@ NodeJS.prototype.saveData = function ( data )  {
 
   .done( function( data ) {
 
-    console.log("Data uploaded successfuly" + data);
+    if (data.success) {
+      console.log("Data uploaded successfuly" + data);
+    } else {
+      console.error("Data not uploaded!");
+    }
 
   })
 
@@ -426,7 +430,7 @@ NodeJS.prototype.loadData = function ( type, callback )  {
 NodeJS.prototype.removeData = function ( uuid, callback ) {
 
   if ( !this.isTokenValid() ) {
-    this.quedCallback.push( ( function ( _uuid, _callback, _this ) { return function () { _this.removeData( _uuid, _callback ) } } )( uuid, callback, this ) );
+    this.queuedCallback.push( ( function ( _uuid, _callback, _this ) { return function () { _this.removeData( _uuid, _callback ) } } )( uuid, callback, this ) );
     overlay.login();
     overlay.setHeader("Your session expired");
     overlay.show();

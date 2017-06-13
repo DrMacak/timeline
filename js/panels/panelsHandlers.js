@@ -12,7 +12,7 @@ const events = {
 
 
   // Panel controls
-  ".closeCross" : { "event" : "click", "func" : function() { panels.removePanel( panels.getPanelByElement(this) ) } },
+  ".closeCross" : { "event" : "click", "func" : function() { panels.removePanel( panels.getPanelByElement( this ) ) } },
   ".hideOverlay" : { "event" : "click", "func" : function() { overlay.hide() } },
   ".toOverlay" : { "event" : "click", "func" : function() { showInOverlay( this ) } },
 
@@ -21,9 +21,12 @@ const events = {
   "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false;  } },
 
   // DEBUG
-  "#BTN1" : { "event" : "click", "func" : function() { panels.recalculatePositions() } },
-  "#BTN2" : { "event" : "click", "func" : function() { nodeJS.loadData("panel", function (data) { panels.createPanelsFromData(data); } ); } },
-  "#BTN3" : { "event" : "click", "func" : function() { overlay.loader(); } }
+  "#BTN1" : { "event" : "click", "func" : function() { camera.position.copy( new THREE.Vector3( 2000, 2000, 2000)); controls.target.copy( new THREE.Vector3(0, 0, 200)); camera.up.copy(  new THREE.Vector3(0, 1, 0));} },
+  "#BTN2" : { "event" : "click", "func" : function() { panels.slideShow() } },
+  "#BTN3" : { "event" : "click", "func" : function() { panels.slider() } },
+  "#BTN4" : { "event" : "click", "func" : function() { camera.position.copy( new THREE.Vector3( helix.height, helix.height, helix.height/2)); controls.target.copy( new THREE.Vector3(0, 0, helix.height/2)); camera.up.copy(  new THREE.Vector3( 0, 0, 1 )); } },
+  "#BTN5" : { "event" : "click", "func" : function() { cinemator.animateCameraToB(new THREE.Vector3(1000, 1000, 1000 ) ); cinemator.animateTargetToB(new THREE.Vector3(100, 100, 500 ) ); } },
+  "#BTN6" : { "event" : "click", "func" : function() { cinemator.animateCameraToB( new THREE.Vector3( helix.height, helix.height, helix.height/2)); cinemator.animateTargetToB( new THREE.Vector3(0, 0, helix.height/2));  cinemator.animateRotationToB( new THREE.Vector3( 0, 0, 1 ));} }
   // ".resizeB" : { "event" : "click", "func" : function() { fitPanelOfElement(this) } },
 
 };
@@ -37,59 +40,6 @@ for ( var key in events ) {
 // Functions attached to panels.
 //
 ///////////////////////////////////////////////////////////////////
-
-// function uploadData( inputEl, type ) {
-//
-//   nodeJS.uploadData( inputEl, type );
-//
-// }
-
-// { panels: [ { uuid: 1324, o: options }, .. ] };
-
-// function savePanels () {
-//   var data = [];
-//
-//   for (var i=0, len = panels.objects.length; i < len; i++ ) {
-//     var options = panels.objects[i]["getOptions"]();
-//
-//     // Dont save time panel.
-//     if ( options.template != "mouseoverSegment" ) {
-//       data.push({ type: "panel", uuid : options.uuid, o : options })
-//     };
-//
-//   }
-//
-//   nodeJS.saveData( data );
-// }
-
-// function loadPanels ( data ) {
-//
-//   var uuids = [];
-//
-//   if (!data.success) {
-//     console.log("No data for this user.");
-//     return;
-//   }
-//
-//   var objects = data.message;
-//
-//   for (var i=0, len = panels.objects.length; i < len; i++ ) {
-//     uuids.push(panels.objects[i]["o"]["uuid"]);
-//   }
-//
-//   for (var i=0, len = objects.length; i < len; i++ ) {
-//
-//     // Check if loaded panel is not already in scene
-//     if ( uuids.indexOf(objects[i]["uuid"]) < 0 ) {
-//
-//       var unzipedOptions = panels.unzipOptions(JSON.parse(objects[i]["options"]));
-//       panels.createPanel( unzipedOptions );
-//
-//     }
-//
-//   }
-//
-// }
 
 function createImage ( src, panelHtml, name ) {
 
@@ -157,7 +107,7 @@ function createGallery () {
 
 function editPanelText( element ) {
   console.log("pini");
-  const panelHtml = getMyHtmlPanel( element );
+  const panelHtml = panels.getHtmlPanelByElement( element );
   const mediaTarget = panelHtml.getElementsByClassName( "mediaTarget" )[0];
   var textArea = document.createElement("textarea");
   textArea.innerHTML = "Enter your text";
@@ -203,7 +153,7 @@ function editText( element ) {
 
 // function deletePanel ( element ) {
 //
-//   const panelHtml = getMyHtmlPanel( element );
+//   const panelHtml = panels.getHtmlPanelByElement( element );
 //   const panel3D = panels.getByProp( "uuid", panelHtml.id );
 //
 //   // Send delete request to backend so we dont need to store it.
@@ -292,7 +242,7 @@ function checkFileType() {
 }
 
 function showInOverlay ( element ) {
-  const panel = getMyHtmlPanel(element);
+  const panel = panels.getHtmlPanelByElement(element);
   const media = panel.getElementsByClassName("mediaTarget")[0];
   console.log(media);
   overlay.show();
@@ -300,22 +250,22 @@ function showInOverlay ( element ) {
 }
 
 function fitPanelOfElement ( element ) {
-  panels.getByProp("uuid", getMyHtmlPanel(element).id).setPlaneSizeToHTML();
+  panels.getByProp("uuid", panels.getHtmlPanelByElement(element).id).setPlaneSizeToHTML();
 }
 
-function getMyHtmlPanel ( element ) {
-
-  if( element.className.indexOf("panel3D") > - 1) {
-    return element;
-  }
-
-  const parents = $( element ).parents();
-
-  for (var i = 0; i < parents.length; i++ ) {
-    if ( parents[i]["className"] == "panel3D" ) {
-       return parents[i];
-    }
-  }
-
-  console.error("This element does not have panelHtml parent.");
-}
+// function getMyHtmlPanel ( element ) {
+//
+//   if( element.className.indexOf("panel3D") > - 1) {
+//     return element;
+//   }
+//
+//   const parents = $( element ).parents();
+//
+//   for (var i = 0; i < parents.length; i++ ) {
+//     if ( parents[i]["className"] == "panel3D" ) {
+//        return parents[i];
+//     }
+//   }
+//
+//   console.error("This element does not have panelHtml parent.");
+// }

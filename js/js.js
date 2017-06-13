@@ -3,6 +3,8 @@ var camera, controls,
     scene, renderer,
     cssScene,  cssRenderer;
 
+var cinemator;
+
 var frames = 0;
 
 var raycaster, currentIntersected, donutMesh;
@@ -124,7 +126,6 @@ var watchDog = {
         var panelOptions = panels.objects[i].getOptions();
         var uuid = panelOptions.uuid;
 
-
         uuidList.push(uuid);
 
         var optionsHash = nodeJS.md5(JSON.stringify(panelOptions));
@@ -165,7 +166,7 @@ var watchDog = {
 
 function Timelix () {
 
-  this.viewDistance = 50000;
+  this.viewDistance = 100000;
   this.near = 1;
   this.birthDate = 0;
   // uuid : hash
@@ -253,7 +254,7 @@ Timelix.prototype.init = function ( birthDate ) {
     overlay.show();
 
     // Push callback to queue to be executed after successful login.
-    nodeJS.quedCallback.push( function () {
+    nodeJS.queuedCallback.push( function () {
 
       helix = new Helix(scene, Segment, new Date( nodeJS.token.body.birthDate ));
 
@@ -304,11 +305,13 @@ Timelix.prototype.init = function ( birthDate ) {
 
   this.placeGeometry();
 
-
-
   // SomeHow camera has to be below helix otherwise it doesnt show segments.
   this.placeCamera();
+
   this.setControls();
+
+  // cinemator = new Cinemator( sphereInter, sphereInter2.position );
+  cinemator = new Cinemator( camera, controls.target );
 
   if (debug) {
     createGUI();
@@ -395,11 +398,17 @@ Timelix.prototype.placeGeometry = function () {
   map.anisotropy = 16;
 
   // Spehere
-  geometry = new THREE.SphereGeometry( 1 );
+  geometry = new THREE.SphereGeometry( 10 );
 	material = new THREE.MeshBasicMaterial( { color: 0xff0000 });
   sphereInter = new THREE.Mesh( geometry, material );
-  sphereInter.visible = false;
+  sphereInter.visible = true;
   scene.add( sphereInter );
+
+  geometry = new THREE.SphereGeometry( 10 );
+  material = new THREE.MeshBasicMaterial( { color: 0x00F });
+  sphereInter2 = new THREE.Mesh( geometry, material );
+  sphereInter.visible = true;
+  scene.add( sphereInter2 );
 
   // Circle
   geometry = new THREE.CircleGeometry( 20, 64);
@@ -420,13 +429,16 @@ Timelix.prototype.placeGeometry = function () {
 }
 
 Timelix.prototype.setControls = function () {
+
   controls = new THREE.TrackballControls( camera );
   controls.target.set( 0, 0, 500);
   controls.rotateSpeed = 4;
   controls.zoomSpeed = 0.1;
   controls.panSpeed = 0.4;
   controls.noZoom = false;
+  // controls.noRotate = true;
   controls.addEventListener( 'change', render );
+
 }
 
 
@@ -674,7 +686,7 @@ Segment.prototype = {
     // console.log( Math.PI/2 - helix._angle + " =? " + Math.acos( this.o.thickness / distanceA ) + " asin = " + Math.asin( this.o.thickness / distanceA ));
 
     // Delta T is the step for finding the minimun distance
-    var deltaT = 0.00001;
+    var deltaT = 0.0001;
     var direction = 1;
 
     // Am I under the center or above? If above we have to go down
@@ -883,7 +895,7 @@ function Helix (scene, segmentConst, birthDate) {
   // Whole HELIX
   this.birthDate = birthDate;
   this.height = 0;
-  this.rotation = 1;
+  this.rotations = 1;
   this.startDate = 0;
   this.endDate = 0;
 
@@ -1303,7 +1315,7 @@ function Helix (scene, segmentConst, birthDate) {
     if ( uuids ) {
 
       for (var i=0, len = uuids.length; i < len; i++ ) {
-        var options = this.getByProp("uuid", uuid[i])["getOptions"]();
+        var options = this.getByProp("uuid", uuids[i])["getOptions"]();
         data.push({ type: "segment", uuid : options.uuid, o : options })
       }
 
@@ -2070,14 +2082,14 @@ Panels.prototype = {
 
   // Get Panel by one of its HTML elements
   getPanelByElement : function ( htmlElement ) {
-      const panelHtml = getMyHtmlPanel( htmlElement );
+      const panelHtml = this.getHtmlPanelByElement( htmlElement );
       return this.getByProp( "uuid", panelHtml.id );
   },
 
   // Get PanelHtml by one of its html elements
   getHtmlPanelByElement : function ( htmlElement ) {
 
-    if( element.className.indexOf("panel3D") > - 1) {
+    if( htmlElement.className.indexOf("panel3D") > - 1) {
       return htmlElement;
     }
 
@@ -2150,18 +2162,18 @@ Panels.prototype = {
 
    if ( panel.o.uuid ) {
 
-     if ( panel.o.html.getElementsByClassName("mediaImg")[0] ) {
+    //  if ( panel.o.html.getElementsByClassName("mediaImg")[0] ) {
 
          var callback = function ( _panel, _this ) { return function () { _this.removePanelLocally( _panel ); } };
 
          nodeJS.removeData( panel.o.uuid, callback( panel, this ) );
 
-       } else {
-
-         console.log("Panel doesnt contain media. No need to call BE");
-         panels.removePanelLocally( panel );
-
-       }
+      //  } else {
+       //
+      //    console.log("Panel doesnt contain media. No need to call BE");
+      //    panels.removePanelLocally( panel );
+       //
+      //  }
 
    } else {
      console.error("Invalid panel object. UUID not found.");
@@ -2186,10 +2198,6 @@ Panels.prototype = {
     this.objects.splice( index, 1 );
 
   },
-
-  // unzipOptions : function ( ) {
-  //
-  // },
 
   placePanel : function ( action, onObject, mousePointer, unique ) {
 
@@ -2280,13 +2288,14 @@ Panels.prototype = {
     // return panel;
   },
 
+  // Recalculate panel position in case helix radius was changed.
   recalculatePositions : function ( ) {
 
     for (var i=0, len = panels.objects.length; i < len; i++ ) {
 
       var panel = panels.objects[i];
 
-      var newCenter = helix.curve.getPoint(helix.getTFromZ(panel.o.centerPosition.z));
+      var newCenter = helix.curve.getPoint( helix.getTFromZ( panel.o.centerPosition.z ) );
 
       panel.updateCenterPosition( newCenter );
 
@@ -2299,32 +2308,32 @@ Panels.prototype = {
 
     var newPanel = new this.panelConstructor( options );
 
-    this.scene3d.add(newPanel.plane);
+    this.scene3d.add( newPanel.plane );
 
-    this.scene3d.add(newPanel.line);
-    this.scene3d.add(newPanel.ring);
+    this.scene3d.add( newPanel.line );
+    this.scene3d.add( newPanel.ring );
 
-    this.css3dScene.add(newPanel.css3d);
+    this.css3dScene.add( newPanel.css3d );
 
-    this.objects.push(newPanel);
+    this.objects.push( newPanel );
 
     // updateRenderes()
 
     return newPanel;
   },
 
-  savePanel : function ( uuid ) {
-    var data = [];
-
-    var options = panels.getByProp("uuid", uuid)["getOptions"]();
-    data.push({ type: "panel", uuid : options.uuid, o : options })
-
-    nodeJS.saveData( data );
-  },
+  // savePanel : function ( uuid ) {
+  //
+  //   var data = [];
+  //
+  //   var options = panels.getByProp("uuid", uuid)["getOptions"]();
+  //
+  //   data.push({ type: "panel", uuid : options.uuid, o : options })
+  //
+  //   nodeJS.saveData( data );
+  // },
 
   savePanels : function ( uuids ) {
-
-    // var data = [];
 
     var data = [];
 
@@ -2336,7 +2345,7 @@ Panels.prototype = {
         data.push({ type: "panel", uuid : options.uuid, o : options })
       }
 
-    // If parameter is not provided save all segments.
+    // If parameter is not provided save all panels.
     } else {
 
       for (var i=0, len = panels.objects.length; i < len; i++ ) {
@@ -2351,26 +2360,16 @@ Panels.prototype = {
 
     }
 
-    // nodeJS.saveData( data );
-    //
-    // for (var i=0, len = panels.objects.length; i < len; i++ ) {
-    //   var options = panels.objects[i]["getOptions"]();
-    //
-    //   // Dont save time panel.
-    //   if ( options.template != "mouseoverSegment" ) {
-    //     data.push({ type: "panel", uuid : options.uuid, o : options })
-    //   };
-    //
-    // }
-
     nodeJS.saveData( data );
   },
 
   // Removing last panel
   removeLastPanel : function ( ) {
+
     if (this.objects.length > 0) {
-      this.removePanelLocally(this.objects[this.objects.length-1]);
+      this.removePanel(this.objects[this.objects.length-1]);
     }
+
   },
 
   // detects if media panel should be mirrored in order to face toward camera
@@ -2380,6 +2379,7 @@ Panels.prototype = {
 
     for (var i = 0; i <  this.objects.length; i++) {
 
+      // Ignore setting panels
       if (this.objects[i].o.template != "leftClickSegment") { continue; };
 
       var panel = this.objects[i];
@@ -2391,19 +2391,124 @@ Panels.prototype = {
       var correctedAngle = panelAngleY + diffAngle;
 
       if ( correctedAngle > Math.PI && correctedAngle < Math.PI*2 || correctedAngle < 0) {
+
         if ( panelRotY != panelAngleY ) {
           panel.setRotationY( panelAngleY );
         }
+
       } else {
+
         if ( Math.floor(panelRotY * 100 ) === Math.floor( panelAngleY * 100 ) ) {
           panel.switchRotationY();
         }
+
       }
 
-      // }
 
     }
+  },
+
+  // Creating panels slideShow. Means creating array of coordinates that are pushed to Cinametor queue to create fly from one panel to another.
+  slideShow : function () {
+
+    // As first sort panels by that how high they are on helix. To go from the lowest to the most upper.
+    var sortedPanels = [];
+
+    // Push one panel as seed.
+    sortedPanels.push( this.objects[0] );
+
+    // start from 1 because 0 is already pushed
+    for ( var i = 1, len = this.objects.length; i < len; i++ ) {
+
+      const panel = this.objects[i];
+
+      // Go thru sortedPanels
+      for (var j = 0, lenS = sortedPanels.length; j < lenS; j++ ) {
+
+        var sortedPanel = sortedPanels[j];
+
+        // If the compared panel is higher then current its sliced on its position
+        if ( sortedPanels[j].o.centerPosition.z > panel.o.centerPosition.z ) {
+          sortedPanels.splice( j, 0, panel);
+          break;
+        }
+
+        // If we are on the end of sorted list and none panel was higher then this one is the highest.
+        if ( j+1 == lenS ) {
+          sortedPanels.push(panel);
+        }
+
+      }
+
+    }
+
+
+    for ( var i = 0, len = sortedPanels.length; i < len; i++ ) {
+
+      const panel = sortedPanels[i];
+      var cameraPostion = new THREE.Vector3();
+
+      const distance = ( Math.sqrt(panel.o.width*panel.o.width + panel.o.height*panel.o.height) / 2 ) / Math.tan( THREE.Math.degToRad( camera.fov ) / 2 );
+
+      cameraPostion.copy( panel.mathPlane.normal ).negate().multiplyScalar(distance).add( panel.o.panelPosition );
+
+      // .add( panel.o.panelPosition )
+      // sphereInter.position.copy( cameraPostion );
+
+
+      cinemator.pushToAnimationQueue( cameraPostion, new THREE.Vector3( 0, 0, 1 ), panel.o.panelPosition, 50 )
+    }
+
+    const numberOfStepsPerRotation = 6;
+    const minimalStep = ( helix.height / helix.rotation ) / numberOfStepsPerRotation;
+
+    // for ( var i = 0; i < ; ) {
+    //
+    // }
+
+  },
+
+
+slider : function () {
+
+  var targetCurve = new THREE.CatmullRomCurve3( );
+  var cameraCurve = new THREE.CatmullRomCurve3( );
+
+  const numberOfStepsPerRotation = 100;
+  const minimalStep = ( helix.height / helix.rotations ) / numberOfStepsPerRotation;
+
+
+
+
+  const steps = helix.height / minimalStep;
+
+  const startPoint = helix.curve.getPoint( helix.segments[0].o.T1, false, 300 );
+  const startCamera = helix.curve.getPoint( helix.segments[0].o.T1 - 0.01, false, 300 );
+
+  // cinemator.pushToAnimationQueue( startCamera, new THREE.Vector3( 0, 0, 1 ), startPoint )
+
+  for ( var i = 0; i < steps; i++) {
+
+    const target = helix.curve.getPoint( helix.getTFromZ( startPoint.z + i * minimalStep ), false, 100 );
+    const camera = helix.curve.getPoint( helix.getTFromZ( startPoint.z + i * minimalStep - 50), false, 600 );
+
+    targetCurve.points.push( target );
+    cameraCurve.points.push( camera );
+    // cinemator.pushToAnimationQueue( camera, new THREE.Vector3( 0, 0, 1 ), target, 0, 500 / numberOfStepsPerRotation )
+
   }
+  const resolution  = 500;
+
+  const targetPoints = targetCurve.getPoints(resolution);
+  const cameraPoints = cameraCurve.getPoints(resolution);
+
+  for (var i = 0; i < resolution; i++) {
+    cinemator.pushToAnimationQueue( cameraPoints[i], new THREE.Vector3( 0, 0, 1 ), targetPoints[i], 0, 5 )
+  }
+
+
+}
+
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -2503,7 +2608,7 @@ function doAction (action, onObject, mousePointer) {
 
   var segment = onObject.dad;
 
-  var centerPoint = segment.getCenterFromSurface(mousePointer);
+  // var centerPoint = segment.getCenterFromSurface(mousePointer);
 
   // DEBUG
   // console.log(onObject);
@@ -2521,7 +2626,6 @@ function doAction (action, onObject, mousePointer) {
 
     var centerPoint = segment.getCenterFromSurface(mousePointer);
 
-    // segment.TALK();
     // if we are drawing new segment dont place mediaPanel
     if ( helix.segmentBuffer.active ) {
 
@@ -2582,6 +2686,8 @@ function animate() {
   // if ( !pauseRaycaster ) {
 
   controls.update();
+
+  cinemator.animate();
 
   // }
 
@@ -2661,16 +2767,7 @@ function render() {
 
       }
 
-      // if ( i + 1 == intersects.length ) {
-      //   if ( panels.getByProp("template", "mouseoverSegment") ) {
-      //     panels.getByProp("template", "mouseoverSegment").visible( false );
-      //   }
-      // }
-
     }
-
-
-
 
   }
 
