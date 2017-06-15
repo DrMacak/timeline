@@ -21,9 +21,9 @@ const events = {
   "#createUserBtn" : { "event" : "click", "func" : function() { nodeJS.createAccount( this.parentElement ); return false;  } },
 
   // DEBUG
-  "#BTN1" : { "event" : "click", "func" : function() { camera.position.copy( new THREE.Vector3( 2000, 2000, 2000)); controls.target.copy( new THREE.Vector3(0, 0, 200)); camera.up.copy(  new THREE.Vector3(0, 1, 0));} },
+  "#BTN1" : { "event" : "click", "func" : function() { cinemator.showSplines(); } },
   "#BTN2" : { "event" : "click", "func" : function() { panels.slideShow() } },
-  "#BTN3" : { "event" : "click", "func" : function() { panels.slider() } },
+  "#BTN3" : { "event" : "click", "func" : function() { cinemator.pause(); } },
   "#BTN4" : { "event" : "click", "func" : function() { camera.position.copy( new THREE.Vector3( helix.height, helix.height, helix.height/2)); controls.target.copy( new THREE.Vector3(0, 0, helix.height/2)); camera.up.copy(  new THREE.Vector3( 0, 0, 1 )); } },
   "#BTN5" : { "event" : "click", "func" : function() { cinemator.animateCameraToB(new THREE.Vector3(1000, 1000, 1000 ) ); cinemator.animateTargetToB(new THREE.Vector3(100, 100, 500 ) ); } },
   "#BTN6" : { "event" : "click", "func" : function() { cinemator.animateCameraToB( new THREE.Vector3( helix.height, helix.height, helix.height/2)); cinemator.animateTargetToB( new THREE.Vector3(0, 0, helix.height/2));  cinemator.animateRotationToB( new THREE.Vector3( 0, 0, 1 ));} }

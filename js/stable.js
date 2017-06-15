@@ -13,12 +13,15 @@ function onWindowResize() {
 }
 
 function onMouseMove( event ) {
+
+	const action  = "mouseOver";
+
 	// calculate mouse position in normalized device coordinates
 	// (-1 to +1) for both components
 	mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1; //1.009
 	mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1; //1.015
 
-	// console.log(mouse.dragging);
+	// console.log(event.pressure);
 
 	if ( mouse.dragging ) {
 			var planeIntersection = new THREE.Vector3();
@@ -39,6 +42,8 @@ function onMouseMove( event ) {
 
 	mouse.clientX = event.clientX;
 	mouse.clientY = event.clientY;
+
+	doMouseAction( event, action );
 }
 
 

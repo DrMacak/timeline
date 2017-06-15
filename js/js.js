@@ -170,6 +170,83 @@ function Timelix () {
   this.near = 1;
   this.birthDate = 0;
   // uuid : hash
+
+  this.templateProxy = {
+    mouseOverSegment : {
+      unique : true,
+      lookAtCamera : true,
+      save : false
+    },
+    leftClickSegment : {
+      unique : false,
+      lookAtCamera : false,
+      save : true
+    },
+    rightClickSegment : {
+      unique : false,
+      lookAtCamera : true,
+      save : false
+    },
+  }
+
+  this.obejctTypes = {
+    segment : { onMouse : { rightClick: "rightClickSegment",
+                            leftClick: "leftClickSegment",
+                            mouseOver : "mouseOverSegment" },
+                            save : true
+
+                          },
+    mouseOverSegment : { onMouse : { rightClick: "inhibit",
+                            leftClick: "inhibit",
+                            mouseOver : "mouseOverSegment" },
+                  unique : true,
+                  lookAtCamera : true,
+                  save : false
+                  // template : "mouseOverSegment"
+                },
+    mouseOverPanel : { onMouse : { rightClick: "inhibit",
+                            leftClick: "inhibit",
+                            mouseOver : "inhibit" },
+                  unique : true,
+                  lookAtCamera : true,
+                  save : false
+                  // template : "mouseOverSegment"
+                },
+
+    leftClickSegment : { onMouse : { rightClick: "inhibit",
+                            leftClick: "inhibit",
+                            mouseOver : "inhibit" },
+                  unique : false,
+                  lookAtCamera : false,
+                  save : true
+                  // template : "leftClickSegment"
+                },
+    rightClickSegment : { onMouse : { rightClick: "inhibit",
+                            leftClick: "inhibit",
+                            mouseOver : "inhibit" },
+                  unique : false,
+                  lookAtCamera : true,
+                  save : false
+                  // template : "rightClickSegment"
+                }
+
+  }
+
+  this.onMouse = {
+    Segment : {
+      rightClick: "rightClickSegment",
+      leftClick: "leftClickSegment",
+      mouseOver : "mouseOverSegment"
+    },
+    Panel : {
+      rightClick: "inhibit",
+      leftClick: "inhibit",
+      mouseOver : "inhibit"
+    },
+  }
+
+
+
 }
 
 Timelix.prototype.init = function ( birthDate ) {
@@ -379,7 +456,7 @@ Timelix.prototype.placeCamera = function () {
 
 Timelix.prototype.placeLights = function () {
   // Lights
-  light = new THREE.DirectionalLight( 0xffffff );
+  var light = new THREE.DirectionalLight( 0xffffff );
 	light.position.set( 10, 20, 30 );
 	scene.add( light );
 
@@ -445,27 +522,17 @@ Timelix.prototype.setControls = function () {
 Timelix.prototype.placeEventListeners = function () {
 
     window.addEventListener( 'resize', onWindowResize, false );
-    document.addEventListener( 'mousemove', onMouseMove, false );
-    document.addEventListener( 'mousedown', function (e) { mouseDown(e) }, false );
 
-    // function(e) {
-    //   if (e.which == 1) {
-    //     console.log("leftDOWN");
-    //     mouse.leftCliked = true;
-    //     leftCliked(e);
-    //   } else if (e.which == 3) {
-    //     mouse.rightCliked = true;
-    //     rightCliked(e);
-    //   }
-    // }
+    // document.addEventListener( 'click', mouseClick, false );
+
+    document.addEventListener( 'mousedown', mouseDown, false );
+
+    document.addEventListener( 'mousemove', onMouseMove, false );
 
     document.addEventListener( 'mouseup', function(e) {
 
       // Left button UP
       if (e.which == 1) {
-        // console.log("leftUP");
-        // mouse.leftCliked = false;
-
         mouse.dragging = false;
         mouse.resizing = false;
 
@@ -633,7 +700,7 @@ SegCurve.prototype._tStrech = function ( t ) {
 
 function Segment ( options ) {
 
-  this.type = "segment";
+  this.type = "Segment";
 
   this.o = options;
 
@@ -775,7 +842,10 @@ Segment.prototype = {
     var tubeMesh =  new THREE.Mesh ( geometry, material);
 
     tubeMesh.visible = this.o.visible;
+
     tubeMesh.click = "interactive";
+
+    // tubeMesh.type = "Segment";
 
     this.Mesh = tubeMesh;
 
@@ -862,7 +932,8 @@ function Helix (scene, segmentConst, birthDate) {
     this.opacity = 1,
     this.bottomCap = false,
     this.topCap = false,
-    this.helix = undefined
+    this.helix = undefined,
+    this.save = true
 
   }
 
@@ -974,8 +1045,8 @@ function Helix (scene, segmentConst, birthDate) {
     }
   }
     console.error("Segment was not found for this Z");
-    // return this.segments[this.segments.length-1];
-    return undefined;
+    return this.segments[this.segments.length-1];
+    // return undefined;
   },
 
   getTimeFromT : function ( T ) {
@@ -1360,7 +1431,7 @@ function Helix (scene, segmentConst, birthDate) {
 
 function Panel ( options ) {
 
-  this.type = "panel";
+  this.type = "Panel";
 
   this.o = options;
 
@@ -1474,6 +1545,8 @@ Panel.prototype = {
      if ( this.o.template != "mouseoverSegment" ) {
        mesh.click = "inhibit";
      }
+
+     mesh.type = "Panel";
 
      this.plane = mesh;
 
@@ -2053,11 +2126,13 @@ function Panels(scene, cssScene, panelConst) {
     this.justRing = false,
     this.buddy = undefined,
     this.html = undefined,
-    this.files = []
-    // this.color = 0xFFFFFF,
-    // this.timePosition = 0,
-    // this.transparency = 0,
-    // this.type = "FreePanel",
+    this.files = [],
+    this.type = "Panel",
+
+    // Extra setting that will be used during panel creating. But may be modified by template specific settings.
+    this.unique = false,
+    this.save = true,
+    this.faceToCamera = false
   }
 
   this.objects = [];
@@ -2149,6 +2224,7 @@ Panels.prototype = {
         if ( uuids.indexOf(panelsData[i]["uuid"]) < 0 ) {
 
           var unzipedOptions = this.unzipOptions(JSON.parse(panelsData[i]["options"]));
+          templator.customizeOptions( unzipedOptions );
           this.createPanel( unzipedOptions );
 
         }
@@ -2207,17 +2283,18 @@ Panels.prototype = {
       var panel = this.getByProp( "template", template );
 
       // If panel exists and is meant only once in scene
-      if ( panel && unique ) {
+      if ( panel && timelix.templateProxy[template]["unique"] ) {
 
-        var newZ = onObject.getCenterFromSurface(mousePointer).z;
-        var oldZ = panel.o.centerPosition.z;
+        const newZ = onObject.getCenterFromSurface(mousePointer).z;
+        const oldZ = panel.o.centerPosition.z;
 
         // If panel position did not changed significantly, dont do anything.
-        if ( Math.floor(newZ) == Math.floor(oldZ) ) {
+        if ( Math.floor(newZ*10) == Math.floor(oldZ*10) ) {
           // infoLog("Skipping the update");
           return panel;
         }
 
+        // MOVE TO panel.update
         // If panel exist and its position changed Update panel data.
         panel.o.buddy = onObject;
 
@@ -2241,6 +2318,13 @@ Panels.prototype = {
 
     var newOpts = new this.PanelOptions ();
 
+    newOpts.template = template;
+
+    // Accepts new options with filled template and customizes some options based on config object.
+    // This is used to provide different behaviour based on template/kind of panel.
+    // This can be also solved by applying OOP with panel as basic and extended by kids.
+    templator.customizeOptions( newOpts );
+
     newOpts.buddy = onObject;
 
     // Center positio
@@ -2258,7 +2342,7 @@ Panels.prototype = {
 
     }
 
-    newOpts.template = template;
+
 
     var newPanel = this.createPanel( newOpts );
 
@@ -2408,8 +2492,8 @@ Panels.prototype = {
     }
   },
 
-  // Creating panels slideShow. Means creating array of coordinates that are pushed to Cinametor queue to create fly from one panel to another.
-  slideShow : function () {
+  // Returns list of panels in time order. The lowest one to the most upper on helix.
+  getPanelSortedByTime : function () {
 
     // As first sort panels by that how high they are on helix. To go from the lowest to the most upper.
     var sortedPanels = [];
@@ -2442,42 +2526,131 @@ Panels.prototype = {
 
     }
 
+    return sortedPanels;
+  },
+
+
+
+  // Creating panels slideShow. Means creating array of coordinates that are pushed to Cinametor queue to create fly from one panel to another.
+  slideShow : function () {
+
+    // As first sort panels by that how high they are on helix. To go from the lowest to the most upper.
+    var sortedPanels = this.getPanelSortedByTime();
+
+    // // Push one panel as seed.
+    // sortedPanels.push( this.objects[0] );
+    //
+    // // start from 1 because 0 is already pushed
+    // for ( var i = 1, len = this.objects.length; i < len; i++ ) {
+    //
+    //   const panel = this.objects[i];
+    //
+    //   // Go thru sortedPanels
+    //   for (var j = 0, lenS = sortedPanels.length; j < lenS; j++ ) {
+    //
+    //     var sortedPanel = sortedPanels[j];
+    //
+    //     // If the compared panel is higher then current its sliced on its position
+    //     if ( sortedPanels[j].o.centerPosition.z > panel.o.centerPosition.z ) {
+    //       sortedPanels.splice( j, 0, panel);
+    //       break;
+    //     }
+    //
+    //     // If we are on the end of sorted list and none panel was higher then this one is the highest.
+    //     if ( j+1 == lenS ) {
+    //       sortedPanels.push(panel);
+    //     }
+    //
+    //   }
+    //
+    // }
+
+    // Division of year
+    var threshHoldZ = (helix.height / helix.rotations) / 8;
+
+    var cameraCurve = [];
+    var rotationCurve = [];
+    var targetCurve = [];
+
+    var delayCurve = [];
+
+    const defPanelOptions = new panels.PanelOptions();
+
+    const offsets = { x: defPanelOptions.offsetX, y: defPanelOptions.offsetY };
 
     for ( var i = 0, len = sortedPanels.length; i < len; i++ ) {
 
       const panel = sortedPanels[i];
+      const previousePanel = sortedPanels[i-1];
+
+      // Check if the previousePanel is defined
+      if ( previousePanel ) {
+
+        // Check if the difference between two panels is more then threshHoldZ
+        if ( panel.o.centerPosition.z - previousePanel.o.centerPosition.z > threshHoldZ ) {
+
+          // Get the Z difference between two panels
+          const deltaZ = panel.o.centerPosition.z - previousePanel.o.centerPosition.z;
+
+          // get how many times the threshold fits in
+          const quotient = Math.floor( deltaZ / threshHoldZ );
+
+          // Create step from the quotient and deltaZ to spread keyPoints equaly on time
+          const stepZ = deltaZ / quotient;
+
+          // Insert keyPoints between two panels in order to lead camera and target on helix
+          for (var x = 1;  x < quotient; x++) {
+
+
+
+            const cameraPostion = helix.curve.getPoint( helix.getTFromZ( previousePanel.o.centerPosition.z + stepZ * x - 50), false, 600 );
+            const targetPosition = helix.curve.getPoint( helix.getTFromZ( previousePanel.o.centerPosition.z + stepZ * x ), false, offsets.x, offsets.y );
+
+            cameraCurve.push(cameraPostion);
+            rotationCurve.push(new THREE.Vector3( 0, 0, 1 ));
+            targetCurve.push(targetPosition);
+
+            delayCurve.push( new THREE.Vector2( cameraPostion.z, 3) );
+
+          }
+
+        }
+
+      }
+
       var cameraPostion = new THREE.Vector3();
 
+      // Calculate distance from the panel based on panels diagonal to fit into camera's view
       const distance = ( Math.sqrt(panel.o.width*panel.o.width + panel.o.height*panel.o.height) / 2 ) / Math.tan( THREE.Math.degToRad( camera.fov ) / 2 );
 
+      // Use panel normal for getting camera position. Negate it to look at panel from the side of lower time.
       cameraPostion.copy( panel.mathPlane.normal ).negate().multiplyScalar(distance).add( panel.o.panelPosition );
 
       // .add( panel.o.panelPosition )
       // sphereInter.position.copy( cameraPostion );
+      cameraCurve.push( cameraPostion );
+      rotationCurve.push( new THREE.Vector3( 0, 0, 1 ) );
+      targetCurve.push( panel.o.panelPosition );
+
+      delayCurve.push( new THREE.Vector2( cameraPostion.z, 10) );
 
 
-      cinemator.pushToAnimationQueue( cameraPostion, new THREE.Vector3( 0, 0, 1 ), panel.o.panelPosition, 50 )
+      // keyPoints.push( cameraPostion, new THREE.Vector3( 0, 0, 1 ), panel.o.panelPosition, 50 );
     }
 
-    const numberOfStepsPerRotation = 6;
-    const minimalStep = ( helix.height / helix.rotation ) / numberOfStepsPerRotation;
-
-    // for ( var i = 0; i < ; ) {
-    //
-    // }
+    cinemator.createCameraTargetPath( cameraCurve, rotationCurve, targetCurve, delayCurve );
 
   },
 
 
 slider : function () {
 
-  var targetCurve = new THREE.CatmullRomCurve3( );
-  var cameraCurve = new THREE.CatmullRomCurve3( );
+  var cameraCurve = [];
+  var rotationCurve = [];
+  var targetCurve = [];
 
-  const numberOfStepsPerRotation = 100;
+  const numberOfStepsPerRotation = 25;
   const minimalStep = ( helix.height / helix.rotations ) / numberOfStepsPerRotation;
-
-
 
 
   const steps = helix.height / minimalStep;
@@ -2492,19 +2665,23 @@ slider : function () {
     const target = helix.curve.getPoint( helix.getTFromZ( startPoint.z + i * minimalStep ), false, 100 );
     const camera = helix.curve.getPoint( helix.getTFromZ( startPoint.z + i * minimalStep - 50), false, 600 );
 
-    targetCurve.points.push( target );
-    cameraCurve.points.push( camera );
+    targetCurve.push( target );
+    cameraCurve.push( camera );
+    rotationCurve.push( new THREE.Vector3( 0, 0, 1 ) );
     // cinemator.pushToAnimationQueue( camera, new THREE.Vector3( 0, 0, 1 ), target, 0, 500 / numberOfStepsPerRotation )
 
   }
-  const resolution  = 500;
 
-  const targetPoints = targetCurve.getPoints(resolution);
-  const cameraPoints = cameraCurve.getPoints(resolution);
+  cinemator.createCameraTargetPath( cameraCurve, rotationCurve, targetCurve );
 
-  for (var i = 0; i < resolution; i++) {
-    cinemator.pushToAnimationQueue( cameraPoints[i], new THREE.Vector3( 0, 0, 1 ), targetPoints[i], 0, 5 )
-  }
+  // const resolution  = 500;
+  //
+  // const targetPoints = targetCurve.getPoints(resolution);
+  // const cameraPoints = cameraCurve.getPoints(resolution);
+  //
+  // for (var i = 0; i < resolution; i++) {
+  //   cinemator.pushToAnimationQueue( cameraPoints[i], new THREE.Vector3( 0, 0, 1 ), targetPoints[i], 0, 5 )
+  // }
 
 
 }
@@ -2536,27 +2713,138 @@ function mouseDown ( e ) {
 
   }
 
+  doMouseAction( e, action );
+
+  // var intersects = raycaster.intersectObjects( scene.children );
+  //
+  //   for (var i = 0; i < intersects.length; i++) {
+  //
+  //     var intersect = intersects[ i ];
+  //
+  //     if ( intersect.object.click == "inhibit" ) {
+  //
+  //       checkDragging( action, intersect.object, e );
+  //
+  //       break;
+  //     }
+  //
+  //     if ( intersect.object.click == "interactive" ) {
+  //
+  //       doAction( action, intersect.object, intersect.point );
+  //
+  //       break;
+  //     }
+  //
+  // }
+
+}
+
+
+function doMouseAction ( event, mouseAction ) {
+
+  // Draggin/Resizing of panels has the highest priority
+
+  if ( mouseAction == "leftClick" ) {
+
+
+
+      if ( event.target.className.indexOf("draggable") > -1 ) {
+
+        event.preventDefault();
+
+        const panel = panels.getPanelByElement( event.target );
+
+        controls.enabled = false;
+        mouse.dragging = true;
+        // console.log("drg");
+        mouse.activePanel = panel;
+
+        return;
+      }
+
+      // IF IM ON resizing ELEMENT
+      if ( event.target.className.indexOf("resizer") > -1 ) {
+
+        event.preventDefault();
+
+        const panel = panels.getPanelByElement( event.target );
+
+        controls.enabled = false;
+        mouse.resizing = true;
+        // console.log("drg");
+        mouse.activePanel = panel;
+
+        return;
+    }
+
+  }
+
+  // Now check 3D objects.
   var intersects = raycaster.intersectObjects( scene.children );
 
+  // If there is not any intersection hide TimePanel and return.
+  if ( intersects.length == 0 && panels.getByProp("template", "mouseOverSegment") ) {
+    panels.getByProp("template", "mouseOverSegment").visible( false );
+    return;
+  }
+
+    // Check each object
     for (var i = 0; i < intersects.length; i++) {
 
-      var intersect = intersects[ i ];
+      const object = intersects[ i ].object;
+      const mousePointer = intersects[ i ].point;
 
-      if ( intersect.object.click == "inhibit" ) {
+      var type = undefined;
+      if ( object.dad != undefined ) {
+        type = object.dad.o.type;
 
-        checkDragging( action, intersect.object, e );
+      if ( timelix.onMouse[type] != undefined && timelix.onMouse[type][mouseAction] == "inhibit" ) {
+
+
+        panels.getByProp("template", "mouseOverSegment").visible( false );
+
 
         break;
       }
 
-      if ( intersect.object.click == "interactive" ) {
+      }
 
-        doAction( action, intersect.object, intersect.point );
+
+      // If we are in process of creating new segment and leftClicked on segment. Override
+      if ( helix.segmentBuffer.active && mouseAction == "leftClick" && type == "segment") {
+
+        const centerPoint = segment.getCenterFromSurface(mousePointer);
+
+        helix.segmentBuffer.T2 = helix.getTFromZ(centerPoint.z);
+
+        if ( helix.getTFromZ(centerPoint.z) < helix.segmentBuffer.T1 ) {
+          helix.segmentBuffer.T2 = helix.segmentBuffer.T1;
+          helix.segmentBuffer.T1 = helix.getTFromZ( centerPoint.z );
+        }
+
+        helix.segmentBuffer.active = false;
+
+        helix.pushSegment();
+      }
+
+      // Check if there is template for this action on object
+      if ( templator.defaultTemplates.indexOf( mouseAction + type ) >= 0 ) {
+
+        var panel = panels.placePanel( mouseAction, object.dad, mousePointer, timelix.obejctTypes[mouseAction + type].unique );
+
+        panel.setPlaneSizeToHTML();
 
         break;
       }
 
   }
+
+
+
+
+
+
+
 
 }
 
@@ -2565,91 +2853,91 @@ function mouseDown ( e ) {
 //
 ///////////////////////////////////////////////////////////////////
 
-function checkDragging ( action, panel, e ) {
+// function checkDragging ( action, panel, e ) {
+//
+//   if (action.indexOf('leftClick') >= 0) {
+//
+//     // var x = mouse.clientX, y = mouse.clientY;
+//     // var elementMouseIsOver = document.elementFromPoint(x, y);
+//
+//     // IF IM ON DRAGABLE ELEMENT
+//     if ( e.target.className.indexOf("draggable") > -1 ) {
+//
+//       e.preventDefault();
+//
+//       controls.enabled = false;
+//       mouse.dragging = true;
+//       // console.log("drg");
+//       mouse.activePanel = panel.dad;
+//     }
+//
+//     // IF IM ON resizing ELEMENT
+//     if ( e.target.className.indexOf("resizer") > -1 ) {
+//
+//       e.preventDefault();
+//
+//       controls.enabled = false;
+//       mouse.resizing = true;
+//       // console.log("drg");
+//       mouse.activePanel = panel.dad;
+//     }
+//
+//     // // IF IM ON resizing ELEMENT
+//     // if ( elementMouseIsOver.className.indexOf("panel") > -1 ) {
+//     //   debugger;
+//     //   e.stopPropagation();
+//     //
+//     // }
+//   }
+//
+// }
 
-  if (action.indexOf('leftClick') >= 0) {
-
-    var x = mouse.clientX, y = mouse.clientY;
-    var elementMouseIsOver = document.elementFromPoint(x, y);
-
-    // IF IM ON DRAGABLE ELEMENT
-    if ( elementMouseIsOver.className.indexOf("draggable") > -1 ) {
-
-      e.preventDefault();
-
-      controls.enabled = false;
-      mouse.dragging = true;
-      // console.log("drg");
-      mouse.activePanel = panel.dad;
-    }
-
-    // IF IM ON resizing ELEMENT
-    if ( elementMouseIsOver.className.indexOf("resizer") > -1 ) {
-
-      e.preventDefault();
-
-      controls.enabled = false;
-      mouse.resizing = true;
-      // console.log("drg");
-      mouse.activePanel = panel.dad;
-    }
-
-    // // IF IM ON resizing ELEMENT
-    // if ( elementMouseIsOver.className.indexOf("panel") > -1 ) {
-    //   debugger;
-    //   e.stopPropagation();
-    //
-    // }
-  }
-
-}
-
-function doAction (action, onObject, mousePointer) {
-
-  var segment = onObject.dad;
-
-  // var centerPoint = segment.getCenterFromSurface(mousePointer);
-
-  // DEBUG
-  // console.log(onObject);
-  // segment.TALK();
-
-  // RIGHT CLICK
-  if (action.indexOf('rightClick') >= 0) {
-
-    var panel = panels.placePanel( action, segment, mousePointer, true );
-    panel.setPlaneSizeToHTML();
-
-
-  // LEFT CLICK
-  } else if ( action.indexOf('leftClick') >= 0 ) {
-
-    var centerPoint = segment.getCenterFromSurface(mousePointer);
-
-    // if we are drawing new segment dont place mediaPanel
-    if ( helix.segmentBuffer.active ) {
-
-      helix.segmentBuffer.T2 = helix.getTFromZ(centerPoint.z);
-
-      if ( helix.getTFromZ(centerPoint.z) < helix.segmentBuffer.T1) {
-        helix.segmentBuffer.T2 = helix.segmentBuffer.T1;
-        helix.segmentBuffer.T1 = helix.getTFromZ(centerPoint.z);
-      }
-
-      helix.segmentBuffer.active = false;
-
-      helix.pushSegment();
-    } else {
-
-      var panel = panels.placePanel( action, segment, mousePointer, false );
-      panel.setPlaneSizeToHTML();
-    }
-
-  } else {
-    console.log("ERROR: Unknow action " + action);
-  }
-
-}
+// function doAction (action, onObject, mousePointer) {
+//
+//   var segment = onObject.dad;
+//
+//   // var centerPoint = segment.getCenterFromSurface(mousePointer);
+//
+//   // DEBUG
+//   // console.log(onObject);
+//   // segment.TALK();
+//
+//   // RIGHT CLICK
+//   if (action.indexOf('rightClick') >= 0) {
+//
+//     var panel = panels.placePanel( action, segment, mousePointer, true );
+//     panel.setPlaneSizeToHTML();
+//
+//
+//   // LEFT CLICK
+//   } else if ( action.indexOf('leftClick') >= 0 ) {
+//
+//     var centerPoint = segment.getCenterFromSurface(mousePointer);
+//
+//     // if we are drawing new segment dont place mediaPanel
+//     if ( helix.segmentBuffer.active ) {
+//
+//       helix.segmentBuffer.T2 = helix.getTFromZ(centerPoint.z);
+//
+//       if ( helix.getTFromZ(centerPoint.z) < helix.segmentBuffer.T1) {
+//         helix.segmentBuffer.T2 = helix.segmentBuffer.T1;
+//         helix.segmentBuffer.T1 = helix.getTFromZ(centerPoint.z);
+//       }
+//
+//       helix.segmentBuffer.active = false;
+//
+//       helix.pushSegment();
+//     } else {
+//
+//       var panel = panels.placePanel( action, segment, mousePointer, false );
+//       panel.setPlaneSizeToHTML();
+//     }
+//
+//   } else {
+//     console.log("ERROR: Unknow action " + action);
+//   }
+//
+// }
 
 ///////////////////////////////////////////////////////////////////
 // ANIMATE
@@ -2657,6 +2945,9 @@ function doAction (action, onObject, mousePointer) {
 ///////////////////////////////////////////////////////////////////
 
 function animate() {
+
+  panels.faceTowardCamera();
+
 
   // HACK
   for (var i = 0; i < panels.objects.length;i++ ) {
@@ -2689,6 +2980,8 @@ function animate() {
 
   cinemator.animate();
 
+  raycaster.setFromCamera( mouse, camera );
+
   // }
 
   render();
@@ -2717,57 +3010,53 @@ function render() {
 
   if ( !pauseRaycaster ) {
 
-  var action = "mouseover";
+  // var action = "mouseover";
+  //
+  // var intersects = raycaster.intersectObjects( scene.children );
+  //
+  // // debugLog(intersects);
+  // if ( 0 == intersects.length ) {
+  //   if ( panels.getByProp("template", "mouseoverSegment") ) {
+  //     panels.getByProp("template", "mouseoverSegment").visible( false );
+  //   }
+  // }
+  //
+  //   for (var i = 0; i < intersects.length; i++) {
+  //
+  //     var intersecObj = intersects[ i ].object;
+  //     var intersecPoint = intersects[ i ].point;
+  //
+  //     if ( intersecObj.click == "inhibit" ) {
+  //
+  //       if ( panels.getByProp("template", "mouseoverSegment") ) {
+  //         panels.getByProp("template", "mouseoverSegment").visible( false );
+  //       }
+  //
+  //       var panel = intersecObj.dad;
+  //
+  //       break;
+  //     }
+  //
+  //     if ( intersecObj.click == "interactive" ) {
+  //
+  //       var segment = intersecObj.dad;
+  //
+  //       if ( segment.o.type == "Segment" ) {
+  //
+  //         // Time Panel
+  //         var timePanel = panels.placePanel( action, segment, intersects[ i ].point, true);
+  //
+  //         // Segment preview
+  //         // helix.segmentBuffer.putT( helix.getTFromZ( intersects[ 0 ].z) );
+  //         // helix.segmentBuffer.shadowSegment.updateGeometry();
+  //
+  //         break;
+  //
+  //       }
+  //
+  //     }
 
-  panels.faceTowardCamera();
-
-  raycaster.setFromCamera( mouse, camera );
-
-  var intersects = raycaster.intersectObjects( scene.children );
-
-  // debugLog(intersects);
-  if ( 0 == intersects.length ) {
-    if ( panels.getByProp("template", "mouseoverSegment") ) {
-      panels.getByProp("template", "mouseoverSegment").visible( false );
-    }
-  }
-
-    for (var i = 0; i < intersects.length; i++) {
-
-      var intersecObj = intersects[ i ].object;
-      var intersecPoint = intersects[ i ].point;
-
-      if ( intersecObj.click == "inhibit" ) {
-
-        if ( panels.getByProp("template", "mouseoverSegment") ) {
-          panels.getByProp("template", "mouseoverSegment").visible( false );
-        }
-
-        var panel = intersecObj.dad;
-
-        break;
-      }
-
-      if ( intersecObj.click == "interactive" ) {
-
-        var segment = intersecObj.dad;
-
-        if ( segment.o.type == "Segment" ) {
-
-          // Time Panel
-          var timePanel = panels.placePanel( action, segment, intersects[ i ].point, true);
-
-          // Segment preview
-          // helix.segmentBuffer.putT( helix.getTFromZ( intersects[ 0 ].z) );
-          // helix.segmentBuffer.shadowSegment.updateGeometry();
-
-          break;
-
-        }
-
-      }
-
-    }
+    // }
 
   }
 
