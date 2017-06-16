@@ -56,14 +56,21 @@ var watchDog = {
 
   hashes : {},
 
-  ignoredTemplates : ["",""],
+  cycles : 0,
 
   firstRun : true,
 
   init : function () {
-    console.log("pini");
+    // console.log("pini");
     this.scanForChanges();
     this.firstRun = false;
+  },
+
+  scanForChangesAfterNcycles : function () {
+    const threshHold = 200;
+    if ( cycles > threshHold ) {
+      this.scanForChanges();
+    }
   },
 
   scanForChanges : function () {
@@ -117,9 +124,10 @@ var watchDog = {
 
       for ( var i = 0, len = panels.objects.length; i < len; i++) {
 
-        var template = panels.objects[i].o.template;
+        // var template = panels.objects[i].o.template;
 
-        if ( template == "mouseoverSegment" || template == "rightClickSegment" ) {
+        // if panels is not meant to be saved skip it.
+        if ( !panels.objects[i].o.save ) {
           continue;
         }
 
@@ -169,68 +177,6 @@ function Timelix () {
   this.viewDistance = 100000;
   this.near = 1;
   this.birthDate = 0;
-  // uuid : hash
-
-  this.templateProxy = {
-    mouseOverSegment : {
-      unique : true,
-      lookAtCamera : true,
-      save : false
-    },
-    leftClickSegment : {
-      unique : false,
-      lookAtCamera : false,
-      save : true
-    },
-    rightClickSegment : {
-      unique : false,
-      lookAtCamera : true,
-      save : false
-    },
-  }
-
-  this.obejctTypes = {
-    segment : { onMouse : { rightClick: "rightClickSegment",
-                            leftClick: "leftClickSegment",
-                            mouseOver : "mouseOverSegment" },
-                            save : true
-
-                          },
-    mouseOverSegment : { onMouse : { rightClick: "inhibit",
-                            leftClick: "inhibit",
-                            mouseOver : "mouseOverSegment" },
-                  unique : true,
-                  lookAtCamera : true,
-                  save : false
-                  // template : "mouseOverSegment"
-                },
-    mouseOverPanel : { onMouse : { rightClick: "inhibit",
-                            leftClick: "inhibit",
-                            mouseOver : "inhibit" },
-                  unique : true,
-                  lookAtCamera : true,
-                  save : false
-                  // template : "mouseOverSegment"
-                },
-
-    leftClickSegment : { onMouse : { rightClick: "inhibit",
-                            leftClick: "inhibit",
-                            mouseOver : "inhibit" },
-                  unique : false,
-                  lookAtCamera : false,
-                  save : true
-                  // template : "leftClickSegment"
-                },
-    rightClickSegment : { onMouse : { rightClick: "inhibit",
-                            leftClick: "inhibit",
-                            mouseOver : "inhibit" },
-                  unique : false,
-                  lookAtCamera : true,
-                  save : false
-                  // template : "rightClickSegment"
-                }
-
-  }
 
   this.onMouse = {
     Segment : {
@@ -706,7 +652,7 @@ function Segment ( options ) {
 
   this.curve = new SegCurve( options );
 
-  this.Mesh = undefined;
+  this.mesh = undefined;
 
   this.cap = undefined;
 
@@ -753,7 +699,7 @@ Segment.prototype = {
     // console.log( Math.PI/2 - helix._angle + " =? " + Math.acos( this.o.thickness / distanceA ) + " asin = " + Math.asin( this.o.thickness / distanceA ));
 
     // Delta T is the step for finding the minimun distance
-    var deltaT = 0.0001;
+    var deltaT = 0.00005;
     var direction = 1;
 
     // Am I under the center or above? If above we have to go down
@@ -847,9 +793,9 @@ Segment.prototype = {
 
     // tubeMesh.type = "Segment";
 
-    this.Mesh = tubeMesh;
+    this.mesh = tubeMesh;
 
-    this.Mesh.dad = this;
+    this.mesh.dad = this;
 
     if ( this.o.uuid ) {
 
@@ -880,7 +826,7 @@ Segment.prototype = {
     this._radialPolygons,
     this._closed);
 
-    this.Mesh.geometry = newGeometry;
+    this.mesh.geometry = newGeometry;
   },
 
 
@@ -891,14 +837,14 @@ Segment.prototype = {
       // infoLog(" Making segment visible.")
 
       this.o.visible = true;
-      this.Mesh.visible = true;
+      this.mesh.visible = true;
 
     } else {
 
       // infoLog(" Making segment NOT visible.")
 
       this.o.visible = false;
-      this.Mesh.visible = false;
+      this.mesh.visible = false;
 
     }
 
@@ -1115,7 +1061,7 @@ function Helix (scene, segmentConst, birthDate) {
 
     newSegment.create3Dsegment();
 
-    this.scene3d.add( newSegment.Mesh );
+    this.scene3d.add( newSegment.mesh );
 
     if ( newSegment.cap ) {
       this.scene3d.add( newSegment.cap );
@@ -1413,7 +1359,7 @@ function Helix (scene, segmentConst, birthDate) {
       this.segments.splice(index,1);
     }
 
-    this.scene3d.remove(segment.Mesh);
+    this.scene3d.remove(segment.mesh);
     this.scene3d.remove(segment.cap);
 
   }
@@ -1476,7 +1422,7 @@ Panel.prototype = {
     var exportOptions = Object.assign({}, this.o);
 
     // converts all complex objects to data neccessary for reconstruction.
-    exportOptions.buddy = this.o.buddy.uuid;
+    exportOptions.buddy = this.o.uuid;
     exportOptions.centerPosition = { x: this.o.centerPosition.x, y: this.o.centerPosition.y, z:this.o.centerPosition.z };
     exportOptions.panelPosition = { x: this.o.panelPosition.x, y: this.o.panelPosition.y, z:this.o.panelPosition.z };
     exportOptions.rotation = { x: this.o.rotation.x, y: helix.getAngle( this.o.panelPosition ), z:this.o.rotation.z };
@@ -1518,7 +1464,10 @@ Panel.prototype = {
     this._createLine();
     this._createPositionRing();
 
-    this.setLineTouchingPoint();
+    // if the panel is looking at the camera set the line to its center and not just edge
+    // if ( !this.o.lookAtCamera ) {
+      this.setLineTouchingPoint();
+    // }
 
   },
 
@@ -1727,7 +1676,11 @@ Panel.prototype = {
   // Updates line and ring if options are changed
   updateAccessories : function () {
     this._updateRingPositionAndRotation();
+    // if ( !this.o.lookAtCamera ) {
     this.setLineTouchingPoint();
+    // } else {
+    //   this._updateLineVertices();
+    // }
   },
 
   // Updates ring position and rotation
@@ -1768,11 +1721,7 @@ Panel.prototype = {
 
   // Return panel position computed from center position and offsets.
   _getPanelPosition : function ( ) {
-    // return this.o.buddy.curve.getPoint(
-    //   helix.getTFromZ(this.o.centerPosition.z),
-    //   true,
-    //   this.o.offsetX,
-    //   this.o.offsetY);
+
       return helix.curve.getPoint(
         helix.getTFromZ(this.o.centerPosition.z),
         true,
@@ -1840,7 +1789,7 @@ Panel.prototype = {
 
       this.plane.geometry = new THREE.RoundedSquare(w, h, 4);
 
-      this.setLineTouchingPoint();
+      // this.setLineTouchingPoint();
 
     }
   },
@@ -1853,7 +1802,8 @@ Panel.prototype = {
     this.o.panelPosition = this._getPanelPosition();
     this.plane.position.copy( this.o.panelPosition );
     this.css3d.position.copy( this.o.panelPosition );
-    this._updateLineVertices();
+    // this._updateLineVertices();
+    // this.setLineTouchingPoint();
     // update position and line
   },
 
@@ -1879,7 +1829,10 @@ Panel.prototype = {
     // if vB = 0 its first iteration so we need one more.
     if ( this._vectorBuffer.vB != 0 ) {
       var dOffsets = this.getDeltaOffsets( this._vectorBuffer.vA, this._vectorBuffer.vB );
+
       this.moveOffset( dOffsets.dX, dOffsets.dY );
+
+      this.setLineTouchingPoint();
 
       // Shift vector buffer
       this._vectorBuffer.shift(this._vectorBuffer.vA);
@@ -1913,8 +1866,15 @@ Panel.prototype = {
   // TBD limit start of line to the surface of segment + rounded corners are not taken into account.
   setLineTouchingPoint : function () {
 
-    const gamma = Math.atan( (this.o.width/2) / (this.o.height/2) );
-    const alpha = Math.atan( this.o.offsetX / this.o.offsetY );
+    if ( !this.o.lookAtCamera ) {
+
+    // TBD When helix is conical its can produce issues and not touch panels edge properly
+
+    // const gamma = Math.atan( (this.o.width/2) / (this.o.height/2) );
+    // const alpha = Math.atan( this.o.offsetX / this.o.offsetY );
+
+    const gamma = this.o.width / this.o.height;
+    const alpha = this.o.offsetX / this.o.offsetY;
 
     var deltaOffsetY = 0 ;
     var deltaOffsetX = 0 ;
@@ -1922,10 +1882,10 @@ Panel.prototype = {
     // detecting corner of panel gamma is angle of the corner.
     if ( gamma > Math.abs(alpha) ) {
       deltaOffsetY = this.o.height / 2;
-      deltaOffsetX = Math.abs( Math.tan(alpha) * deltaOffsetY );
+      deltaOffsetX = Math.abs( alpha * deltaOffsetY );
     } else {
       deltaOffsetX = this.o.width / 2;
-      deltaOffsetY =  Math.abs( Math.tan(Math.PI/2 - alpha) * deltaOffsetX );
+      deltaOffsetY =  Math.abs( Math.tan(Math.PI/2 -  Math.atan(alpha)) * deltaOffsetX ) ;
     }
 
     // I want to decreas offset everytime.
@@ -1933,11 +1893,14 @@ Panel.prototype = {
     if ( this.o.offsetY > 0 )  { deltaOffsetY *= -1}
 
     // Getting the edge point from helix functing
-    var edgePoint = this.o.buddy.curve.getPoint(
+    var edgePoint = helix.curve.getPoint(
       helix.getTFromZ(this.o.centerPosition.z),
       true,
       this.o.offsetX + deltaOffsetX,
       this.o.offsetY + deltaOffsetY);
+
+    }
+
 
     this._updateLineVertices( edgePoint );
 
@@ -2004,8 +1967,6 @@ Panel.prototype = {
 
     if ( visible ) {
 
-      infoLog(" Making panel visible.")
-
       this.o.visible = true;
       this.plane.visible = true;
       this.css3d.visible = true;
@@ -2015,8 +1976,6 @@ Panel.prototype = {
       this.o.html.style.visibility = "visible";
 
     } else {
-
-      infoLog(" Making panel NOT visible.")
 
       this.o.visible = false;
       this.plane.visible = false;
@@ -2061,6 +2020,7 @@ Panel.prototype = {
         // Move offset by half of delta.
         this.moveOffset( rdOffsetdX / 2 , rdOffsetdY /2 );
 
+        this.setLineTouchingPoint();
       }
 
       // Shift vector buffer
@@ -2196,9 +2156,8 @@ Panels.prototype = {
 
     zippedO.html = div;
 
-
     // Is possible that buddy (usualy segment) was not loaded yet. Or doesnt exist. So if not found in scene. Let get default on based on panel position.
-    zippedO.buddy = scene.getObjectByProperty( "uuid", zippedO.buddy ) || helix.getSegmentOnZ( zippedO.centerPosition.z );
+    zippedO.buddy = helix.getByProp( "uuid", zippedO.buddy ) || helix.getSegmentOnZ( zippedO.centerPosition.z );
 
    return zippedO;
   },
@@ -2238,18 +2197,9 @@ Panels.prototype = {
 
    if ( panel.o.uuid ) {
 
-    //  if ( panel.o.html.getElementsByClassName("mediaImg")[0] ) {
+     var callback = function ( _panel, _this ) { return function () { _this.removePanelLocally( _panel ); } };
 
-         var callback = function ( _panel, _this ) { return function () { _this.removePanelLocally( _panel ); } };
-
-         nodeJS.removeData( panel.o.uuid, callback( panel, this ) );
-
-      //  } else {
-       //
-      //    console.log("Panel doesnt contain media. No need to call BE");
-      //    panels.removePanelLocally( panel );
-       //
-      //  }
+     nodeJS.removeData( panel.o.uuid, callback( panel, this ) );
 
    } else {
      console.error("Invalid panel object. UUID not found.");
@@ -2275,44 +2225,27 @@ Panels.prototype = {
 
   },
 
-  placePanel : function ( action, onObject, mousePointer, unique ) {
+  placePanel : function ( action, onObject, mousePointer ) {
 
-      // Template name is combination of action and object.
-      var template = action + onObject.o.type;
+    // Template name is combination of action and object.
+    var template = action + onObject.o.type;
 
-      var panel = this.getByProp( "template", template );
+    var panel = this.getByProp( "template", template );
 
-      // If panel exists and is meant only once in scene
-      if ( panel && timelix.templateProxy[template]["unique"] ) {
+    // If panel exists and is meant only once in scene
+    if ( panel && panel.o.unique ) {
 
-        const newZ = onObject.getCenterFromSurface(mousePointer).z;
-        const oldZ = panel.o.centerPosition.z;
+      const newZ = onObject.getCenterFromSurface(mousePointer).z;
+      const oldZ = panel.o.centerPosition.z;
 
-        // If panel position did not changed significantly, dont do anything.
-        if ( Math.floor(newZ*10) == Math.floor(oldZ*10) ) {
-          // infoLog("Skipping the update");
-          return panel;
-        }
+    // If panel position did not changed significantly, dont do anything.
+    if ( Math.floor(newZ*10) == Math.floor(oldZ*10) ) {
+      return panel;
+    }
 
-        // MOVE TO panel.update
-        // If panel exist and its position changed Update panel data.
-        panel.o.buddy = onObject;
+    return this.updatePanelPosition( panel, onObject, mousePointer );
 
-        panel.updateCenterPosition( onObject.getCenterFromSurface( mousePointer ) );
-
-        panel.setRotation( camera.rotation );
-
-        panel.updateAccessories();
-        panel.updateTemplate();
-
-        // panel.setTemplateElements();
-        panel.visible(true);
-
-        // updateRenderes();
-        panel.setPlaneSizeToHTML();
-
-        return panel;
-      }
+    }
 
     // PANEL NOT FOUND CREATING NEW
 
@@ -2332,44 +2265,47 @@ Panels.prototype = {
     newOpts.centerPosition = centerPoint;
 
     // Rotation
-    if ( action.indexOf('leftClick') >= 0 ) {
+    if ( newOpts.lookAtCamera ) {
 
-      newOpts.rotation = new THREE.Vector3( Math.PI/2, helix.getAngle( centerPoint ), 0);
+      newOpts.rotation = camera.rotation ;
 
     } else {
 
-      newOpts.rotation = camera.rotation ;
+      newOpts.rotation = new THREE.Vector3( Math.PI/2, helix.getAngle( centerPoint ), 0);
 
     }
 
 
-
     var newPanel = this.createPanel( newOpts );
 
-    updateRenderes();
-    // debugger;
+    // updateRenderes();
+
     newPanel.setPlaneSizeToHTML();
 
     return newPanel;
   },
 
-  updatePanel : function ( onObject, mousePointer ) {
-    // panel.o.buddy = onObject;
-    //
-    // panel.updateCenterPosition( onObject.getCenterFromSurface( mousePointer ) );
-    //
-    // panel.setRotation( camera.rotation );
-    //
-    // panel.updateAccessories();
-    // panel.updateTemplate();
-    //
-    // // panel.setTemplateElements();
-    // panel.visible(true);
-    //
-    // // updateRenderes();
-    // panel.setPlaneSizeToHTML();
-    //
-    // return panel;
+  // should be moved to Panel class
+  updatePanelPosition : function ( panel, onObject, mousePointer ) {
+
+    panel.o.buddy = onObject;
+
+    panel.updateCenterPosition( onObject.getCenterFromSurface( mousePointer ) );
+
+    if ( panel.o.lookAtCamera ) {
+      panel.setRotation( camera.rotation );
+    }
+
+    panel.updateAccessories();
+    panel.updateTemplate();
+
+    // panel.setTemplateElements();
+    panel.visible(true);
+
+    // updateRenderes();
+    panel.setPlaneSizeToHTML();
+
+    return panel;
   },
 
   // Recalculate panel position in case helix radius was changed.
@@ -2798,11 +2734,9 @@ function doMouseAction ( event, mouseAction ) {
       if ( object.dad != undefined ) {
         type = object.dad.o.type;
 
-      if ( timelix.onMouse[type] != undefined && timelix.onMouse[type][mouseAction] == "inhibit" ) {
-
+      if ( timelix.onMouse[type] != undefined && timelix.onMouse[type][mouseAction] == "inhibit" && panels.getByProp("template", "mouseOverSegment")) {
 
         panels.getByProp("template", "mouseOverSegment").visible( false );
-
 
         break;
       }
@@ -2830,7 +2764,7 @@ function doMouseAction ( event, mouseAction ) {
       // Check if there is template for this action on object
       if ( templator.defaultTemplates.indexOf( mouseAction + type ) >= 0 ) {
 
-        var panel = panels.placePanel( mouseAction, object.dad, mousePointer, timelix.obejctTypes[mouseAction + type].unique );
+        var panel = panels.placePanel( mouseAction, object.dad, mousePointer );
 
         panel.setPlaneSizeToHTML();
 
@@ -2839,13 +2773,6 @@ function doMouseAction ( event, mouseAction ) {
 
   }
 
-
-
-
-
-
-
-
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -2853,91 +2780,6 @@ function doMouseAction ( event, mouseAction ) {
 //
 ///////////////////////////////////////////////////////////////////
 
-// function checkDragging ( action, panel, e ) {
-//
-//   if (action.indexOf('leftClick') >= 0) {
-//
-//     // var x = mouse.clientX, y = mouse.clientY;
-//     // var elementMouseIsOver = document.elementFromPoint(x, y);
-//
-//     // IF IM ON DRAGABLE ELEMENT
-//     if ( e.target.className.indexOf("draggable") > -1 ) {
-//
-//       e.preventDefault();
-//
-//       controls.enabled = false;
-//       mouse.dragging = true;
-//       // console.log("drg");
-//       mouse.activePanel = panel.dad;
-//     }
-//
-//     // IF IM ON resizing ELEMENT
-//     if ( e.target.className.indexOf("resizer") > -1 ) {
-//
-//       e.preventDefault();
-//
-//       controls.enabled = false;
-//       mouse.resizing = true;
-//       // console.log("drg");
-//       mouse.activePanel = panel.dad;
-//     }
-//
-//     // // IF IM ON resizing ELEMENT
-//     // if ( elementMouseIsOver.className.indexOf("panel") > -1 ) {
-//     //   debugger;
-//     //   e.stopPropagation();
-//     //
-//     // }
-//   }
-//
-// }
-
-// function doAction (action, onObject, mousePointer) {
-//
-//   var segment = onObject.dad;
-//
-//   // var centerPoint = segment.getCenterFromSurface(mousePointer);
-//
-//   // DEBUG
-//   // console.log(onObject);
-//   // segment.TALK();
-//
-//   // RIGHT CLICK
-//   if (action.indexOf('rightClick') >= 0) {
-//
-//     var panel = panels.placePanel( action, segment, mousePointer, true );
-//     panel.setPlaneSizeToHTML();
-//
-//
-//   // LEFT CLICK
-//   } else if ( action.indexOf('leftClick') >= 0 ) {
-//
-//     var centerPoint = segment.getCenterFromSurface(mousePointer);
-//
-//     // if we are drawing new segment dont place mediaPanel
-//     if ( helix.segmentBuffer.active ) {
-//
-//       helix.segmentBuffer.T2 = helix.getTFromZ(centerPoint.z);
-//
-//       if ( helix.getTFromZ(centerPoint.z) < helix.segmentBuffer.T1) {
-//         helix.segmentBuffer.T2 = helix.segmentBuffer.T1;
-//         helix.segmentBuffer.T1 = helix.getTFromZ(centerPoint.z);
-//       }
-//
-//       helix.segmentBuffer.active = false;
-//
-//       helix.pushSegment();
-//     } else {
-//
-//       var panel = panels.placePanel( action, segment, mousePointer, false );
-//       panel.setPlaneSizeToHTML();
-//     }
-//
-//   } else {
-//     console.log("ERROR: Unknow action " + action);
-//   }
-//
-// }
 
 ///////////////////////////////////////////////////////////////////
 // ANIMATE
@@ -2960,13 +2802,12 @@ function animate() {
 
   }
 
-
-  frames++;
-
-  if ( frames > 200 ) {
+  // frames++;
+  //
+  // if ( frames > 200 ) {
     watchDog.scanForChanges();
-    frames = 0;
-  }
+  //   frames = 0;
+  // }
   //
   // setTimeout( function() {
   //
@@ -3007,58 +2848,6 @@ function animate() {
 ///////////////////////////////////////////////////////////////////
 
 function render() {
-
-  if ( !pauseRaycaster ) {
-
-  // var action = "mouseover";
-  //
-  // var intersects = raycaster.intersectObjects( scene.children );
-  //
-  // // debugLog(intersects);
-  // if ( 0 == intersects.length ) {
-  //   if ( panels.getByProp("template", "mouseoverSegment") ) {
-  //     panels.getByProp("template", "mouseoverSegment").visible( false );
-  //   }
-  // }
-  //
-  //   for (var i = 0; i < intersects.length; i++) {
-  //
-  //     var intersecObj = intersects[ i ].object;
-  //     var intersecPoint = intersects[ i ].point;
-  //
-  //     if ( intersecObj.click == "inhibit" ) {
-  //
-  //       if ( panels.getByProp("template", "mouseoverSegment") ) {
-  //         panels.getByProp("template", "mouseoverSegment").visible( false );
-  //       }
-  //
-  //       var panel = intersecObj.dad;
-  //
-  //       break;
-  //     }
-  //
-  //     if ( intersecObj.click == "interactive" ) {
-  //
-  //       var segment = intersecObj.dad;
-  //
-  //       if ( segment.o.type == "Segment" ) {
-  //
-  //         // Time Panel
-  //         var timePanel = panels.placePanel( action, segment, intersects[ i ].point, true);
-  //
-  //         // Segment preview
-  //         // helix.segmentBuffer.putT( helix.getTFromZ( intersects[ 0 ].z) );
-  //         // helix.segmentBuffer.shadowSegment.updateGeometry();
-  //
-  //         break;
-  //
-  //       }
-  //
-  //     }
-
-    // }
-
-  }
 
   // var timer = Date.now() * 0.0001;
   // tubeMesh.rotation.z = timer * 2.5;

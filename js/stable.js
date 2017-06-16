@@ -27,14 +27,14 @@ function onMouseMove( event ) {
 			var planeIntersection = new THREE.Vector3();
 			raycaster.ray.intersectPlane( mouse.activePanel.mathPlane, planeIntersection );
 			mouse.activePanel.setOffsetToCursor( planeIntersection );
-			mouse.activePanel.setLineTouchingPoint();
+			// mouse.activePanel.setLineTouchingPoint();
 	}
 
 	if ( mouse.resizing ) {
 			var planeIntersection = new THREE.Vector3();
 			raycaster.ray.intersectPlane( mouse.activePanel.mathPlane, planeIntersection );
 			mouse.activePanel.resizeToNewCorner( planeIntersection );
-			mouse.activePanel.setLineTouchingPoint();
+			// mouse.activePanel.setLineTouchingPoint();
 	}
 
 	mouse.diffX = mouse.clientX - event.clientX;
