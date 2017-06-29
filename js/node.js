@@ -7,6 +7,7 @@ function NodeJS ( url ) {
   this.loginRoute = "login";
   this.createUserRoute = "createUser";
 
+  this.userName = "";
   this.firstLogin = false;
   this.queuedCallback = [];
   // this.queuedCallback.prototype.run =  function () {
@@ -288,6 +289,14 @@ NodeJS.prototype.uploadData = function ( inputEl, type ) {
       processData: false,
       contentType: false,
       headers: { "Authorization" : this.token.raw },
+      statusCode: {
+                    401: function() {
+                      console.log( "Authentication failed" );
+                      overlay.login();
+                      overlay.setHeader("Your session expired");
+                      overlay.show();
+                    }
+                  },
       // success: wrapper( src, type, HtmlPanel ),
 
       xhr: function( HtmlPanel ) {
@@ -379,7 +388,15 @@ NodeJS.prototype.saveData = function ( data )  {
     data: JSON.stringify( { objects : data } ),
     processData: false,
     headers: { "Authorization": this.token.raw },
-    contentType: "application/json; charset=utf-8"
+    contentType: "application/json; charset=utf-8",
+    statusCode: {
+                  401: function() {
+                    console.log( "Authentication failed" );
+                    overlay.login();
+                    overlay.setHeader("Your session expired");
+                    overlay.show();
+                  }
+                }
 
   })
 
@@ -410,7 +427,15 @@ NodeJS.prototype.loadData = function ( type, callback )  {
     type: 'GET',
     // data: JSON.stringify( data ),
     processData: false,
-    headers: { "Authorization": this.token.raw }
+    headers: { "Authorization": this.token.raw },
+    statusCode: {
+                  401: function() {
+                    console.log( "Authentication failed" );
+                    overlay.login();
+                    overlay.setHeader("Your session expired");
+                    overlay.show();
+                  }
+                }
     // contentType: "application/json; charset=utf-8"
 
   })
@@ -427,6 +452,7 @@ NodeJS.prototype.loadData = function ( type, callback )  {
 
 }
 
+//  Remove data from DB, thats based only on uuid.
 NodeJS.prototype.removeData = function ( uuid, callback ) {
 
   if ( !this.isTokenValid() ) {
@@ -443,7 +469,15 @@ NodeJS.prototype.removeData = function ( uuid, callback ) {
     url: url,
     type: 'DELETE',
     processData: false,
-    headers: { "Authorization": this.token.raw }
+    headers: { "Authorization": this.token.raw },
+    statusCode: {
+                  401: function() {
+                    console.log( "Authentication failed" );
+                    overlay.login();
+                    overlay.setHeader("Your session expired");
+                    overlay.show();
+                  }
+                }
   })
 
   .done( function( data ) {
@@ -456,6 +490,7 @@ NodeJS.prototype.removeData = function ( uuid, callback ) {
 
 }
 
+// Removes token from local Storage, and from memory.
 NodeJS.prototype.logOut = function ()  {
   localStorage.removeItem('token');
   this.token = undefined;
@@ -494,6 +529,15 @@ NodeJS.prototype.saveToken = function( rawToken ) {
   if( !parsedToken ) { return false; }
 
   this.token.header = parsedToken.header;
+
+  // Protection from loggin as different user during one session
+  if( this.token.body.username != parsedToken.body.username && this.token.body.username) {
+      this.logOut();
+      overlay.setHeader("Reaload page to log as different user during one session");
+      console.error("Reaload page to log as different user during one session");
+      return false;
+  }
+
   this.token.body = parsedToken.body;
   this.token.tail = parsedToken.tail;
 

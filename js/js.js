@@ -68,8 +68,12 @@ var watchDog = {
 
   scanForChangesAfterNcycles : function () {
     const threshHold = 200;
-    if ( cycles > threshHold ) {
+
+    this.cycles++;
+
+    if ( this.cycles > threshHold ) {
       this.scanForChanges();
+      this.cycles = 0;
     }
   },
 
@@ -77,6 +81,8 @@ var watchDog = {
 
     // In this list I will cumulate all uuids that are in scene.
     var uuidList = [];
+
+    var removedUUIDs = [];
 
     if (helix) {
 
@@ -156,8 +162,26 @@ var watchDog = {
 
       }
 
+      const self = this;
+
+      // Look for uuids that were in hashList but not in uuidList
+      Object.keys( this.hashes ).map( function( uuid ) {
+
+        if ( uuidList.indexOf(uuid) < 0 ) {
+          removedUUIDs.push(uuid);
+          // self.hashes[uuid] = undefined;
+          delete self.hashes[uuid];
+        }
+
+      });
+
+
       if ( uuids.length > 0 ) {
         panels.savePanels( uuids );
+      }
+
+      if ( removedUUIDs.length > 0 ) {
+        panels.removePanelsByUUID( removedUUIDs );
       }
 
     }
@@ -221,8 +245,6 @@ Timelix.prototype.init = function ( birthDate ) {
 
   cssScene = new THREE.Scene();
 
-  // ASYNC load helix
-
   overlay = new Overlay("Overlay");
 
   overlay.loader();
@@ -231,8 +253,8 @@ Timelix.prototype.init = function ( birthDate ) {
 
   panels = new Panels(scene, cssScene, Panel);
 
-  // helix = new Helix(scene, Segment, birthDate);
 
+  // ASYNC load helix
 
   if ( nodeJS.isTokenValid() ) {
 
@@ -250,22 +272,19 @@ Timelix.prototype.init = function ( birthDate ) {
 
       // Nested call for loading Panels
       nodeJS.loadData("panel", function ( data ) {
+
         if ( data.success ) {
 
           panels.createPanelsFromData( data );
 
-          overlay.hide();
-
-          watchDog.init();
-
         } else {
-
-          overlay.hide();
-
-          watchDog.init();
 
           console.log("No panels found for this user.");
         }
+
+        overlay.hide();
+        watchDog.init();
+
       });
 
     });
@@ -287,20 +306,6 @@ Timelix.prototype.init = function ( birthDate ) {
 
           helix.createSegmentsFromData( data );
 
-          // Nested call for loading Panels
-          nodeJS.loadData("panel", function ( data ) {
-            if ( data.success ) {
-
-              panels.createPanelsFromData( data );
-
-              watchDog.init();
-
-            } else {
-              console.log("No panels found for this user.");
-            }
-          });
-
-
         } else {
 
           helix.genDefaultSegments();
@@ -309,9 +314,22 @@ Timelix.prototype.init = function ( birthDate ) {
           if ( nodeJS.firstLogin ) {
             helix.saveSegments();
           }
+        }
+
+        // Nested call for loading Panels
+        nodeJS.loadData("panel", function ( data ) {
+          if ( data.success ) {
+
+            panels.createPanelsFromData( data );
+
+          } else {
+            console.log("No panels found for this user.");
+          }
 
           watchDog.init();
-        }
+
+        });
+
 
       });
 
@@ -332,6 +350,8 @@ Timelix.prototype.init = function ( birthDate ) {
   this.placeCamera();
 
   this.setControls();
+
+  // helix.setCameraToLookAtMe();
 
   // cinemator = new Cinemator( sphereInter, sphereInter2.position );
   cinemator = new Cinemator( camera, controls.target );
@@ -932,14 +952,20 @@ function Helix (scene, segmentConst, birthDate) {
 
   // Initiliazing function with help of birth date.
   init : function() {
+
     const now = new Date();
+
     this.startDate = new Date("01 01 " + this.birthDate.getFullYear());
     this.endDate = new Date("12 31 " + now.getFullYear());
+
     // height equals time in ms but its reduced not to be too high.
     this.height = (this.endDate - this.startDate) / this.heightReduce;
     this.rotations = now.getFullYear() - this.birthDate.getFullYear() + 1;
 
     this._angle = Math.atan( this.height / (2*Math.PI*this.radius) );
+
+
+    // this.setCameraToLookAtMe();
 
     // create shadow segments
     // var shadowSegOpt = new SegmentOptions();
@@ -1050,6 +1076,18 @@ function Helix (scene, segmentConst, birthDate) {
     const angle = offset + polarity * ( Math.atan2( point.y, point.x ) * polarity - offset );
 
     return angle;
+  },
+
+  // Sets camera to default position to look at helix
+  setCameraToLookAtMe : function () {
+    // Set Camera position
+    camera.position.copy( new THREE.Vector3( this.height, this.height, this.height/2));
+
+    // Sets where Camera is looking
+    controls.target.copy( new THREE.Vector3(0, 0, this.height/2));
+
+    // sets camera rotation
+    camera.up.copy(  new THREE.Vector3( 0, 0, 1 ));
   },
 
   // Put one segment to scene
@@ -1789,7 +1827,7 @@ Panel.prototype = {
 
       this.plane.geometry = new THREE.RoundedSquare(w, h, 4);
 
-      // this.setLineTouchingPoint();
+      this.setLineTouchingPoint();
 
     }
   },
@@ -2193,11 +2231,27 @@ Panels.prototype = {
   },
 
   // Removing panel calls BE and then it removes panel locally
+  removePanelsByUUID : function ( uuids ) {
+
+    for ( var i = 0, len = uuids.length; i < len; i++ ) {
+
+      const panel = this.getByProp("uuid", uuids[i]);
+
+      if ( panel != undefined ) {
+        this.removePanel( panel );
+      } else {
+        console.warn("Panel for this uuid: " + uuids[i] + " was not found. So the panel wont be removed.");
+      }
+    }
+
+  },
+
+  // Removing panel calls BE and then it removes panel locally
   removePanel : function ( panel ) {
 
    if ( panel.o.uuid ) {
 
-     var callback = function ( _panel, _this ) { return function () { _this.removePanelLocally( _panel ); } };
+     var callback = function ( _panel, _this ) { return function () { _this._removePanelLocally( _panel ); } };
 
      nodeJS.removeData( panel.o.uuid, callback( panel, this ) );
 
@@ -2208,7 +2262,7 @@ Panels.prototype = {
   },
 
   // Removes panel locally after its removed from BE
-  removePanelLocally : function ( panel ) {
+  _removePanelLocally : function ( panel ) {
 
     infoLog("Removing locally object:");
     infoLog(panel);
@@ -2281,6 +2335,7 @@ Panels.prototype = {
     // updateRenderes();
 
     newPanel.setPlaneSizeToHTML();
+    // newPanel.setLineTouchingPoint();
 
     return newPanel;
   },
@@ -2394,6 +2449,10 @@ Panels.prototype = {
 
   // detects if media panel should be mirrored in order to face toward camera
   faceTowardCamera : function ( ) {
+
+    if ( helix == undefined ) {
+      return;
+    }
 
     var cameraAngleY = helix.getAngle( camera.position );
 
@@ -2745,7 +2804,7 @@ function doMouseAction ( event, mouseAction ) {
 
 
       // If we are in process of creating new segment and leftClicked on segment. Override
-      if ( helix.segmentBuffer.active && mouseAction == "leftClick" && type == "segment") {
+      if ( helix && helix.segmentBuffer.active && mouseAction == "leftClick" && type == "segment") {
 
         const centerPoint = segment.getCenterFromSurface(mousePointer);
 
@@ -2805,7 +2864,9 @@ function animate() {
   // frames++;
   //
   // if ( frames > 200 ) {
-    watchDog.scanForChanges();
+  setTimeout( function () {
+    watchDog.scanForChangesAfterNcycles();
+  } );
   //   frames = 0;
   // }
   //
