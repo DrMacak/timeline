@@ -84,7 +84,7 @@ var watchDog = {
 
     var removedUUIDs = [];
 
-    if (helix) {
+    if ( helix ) {
 
       var uuids = [];
 
@@ -351,7 +351,9 @@ Timelix.prototype.init = function ( birthDate ) {
 
   this.setControls();
 
-  // helix.setCameraToLookAtMe();
+  if (helix) {
+    helix.setCameraToLookAtMe();
+  }
 
   // cinemator = new Cinemator( sphereInter, sphereInter2.position );
   cinemator = new Cinemator( camera, controls.target );
@@ -436,12 +438,27 @@ Timelix.prototype.placeLights = function () {
 
 Timelix.prototype.placeGeometry = function () {
 
+  const lineGeometry = new THREE.Geometry();
+  const lineMaterial = new THREE.LineBasicMaterial({
+    // Line width doesn work under windows
+    //  linewidth: 100,
+    color: 0x000000
+  });
+
+  lineX = new THREE.Line( lineGeometry, lineMaterial );
+  lineX.geometry.vertices.push(new THREE.Vector3(0,0,0));
+  // lineY = new THREE.Line( lineGeometry, lineMaterial );
+  scene.add( lineX );
+  // scene.add( lineY );
+
+
+
   var map = new THREE.TextureLoader().load( 'img/UV_Grid_Sm.jpg' );
   map.wrapS = map.wrapT = THREE.RepeatWrapping;
   map.anisotropy = 16;
 
   // Spehere
-  geometry = new THREE.SphereGeometry( 10 );
+  geometry = new THREE.SphereGeometry( 30 );
 	material = new THREE.MeshBasicMaterial( { color: 0xff0000 });
   sphereInter = new THREE.Mesh( geometry, material );
   sphereInter.visible = true;
@@ -605,6 +622,30 @@ SegCurve.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
   var tz = helix.height * Tl + _zOffset;
 
   // can create conus instead of helix
+  // radius += tz/30;
+
+  var tx = Math.sin( Tpi ) * radius;
+  var ty = Math.cos( Tpi ) * radius;
+
+  return new THREE.Vector3( tx, ty, tz );
+}
+
+SegCurve.prototype._getPoint = function (t, radiusOffset, zOffset) {
+  // debugger;
+
+  // radiusOffset = 0
+  // zOffset = 0
+
+  var radius = radiusOffset + helix.radius || helix.radius;
+
+
+  var _zOffset = zOffset || 0;
+
+  var Tpi = t*(Math.PI*2) * helix.rotations;
+
+  var tz = helix.height * t + _zOffset;
+
+  // can create conus instead of helix
   radius += tz/30;
 
   var tx = Math.sin( Tpi ) * radius;
@@ -612,6 +653,54 @@ SegCurve.prototype.getPoint = function (t, pure, radiusOffset, zOffset) {
 
   return new THREE.Vector3( tx, ty, tz );
 }
+
+// SegCurve.prototype.XXXgetT = function ( point ) {
+//
+//   var x = point.x;
+//   var y = point.y;
+//   var z = point.z;
+//
+//   var radius = Math.sqrt(point.x*point.x + point.y*point.y);
+//
+//   var TzUP = helix.getTFromZ(point.z);
+//
+//   // ???
+//   var zOffset = 0;
+//
+//   var Tx = Math.asin( x / radius ) / ( ( Math.PI*2 ) * helix.rotations);
+//   var Ty = Math.acos( y / radius ) / ( ( Math.PI*2 ) * helix.rotations);
+//   var Tz = (z - zOffset) / helix.height;
+//
+//
+//
+//   return {Tx, Ty, Tz};
+// }
+
+// SegCurve.prototype._getTfromPoint = function ( point ) {
+// // function (t, radiusOffset, zOffset) {
+//   // debugger;
+//
+//   var middlePoint = new THREE.Vector3( 0, 0, mousePoint.z );
+//   var _radiusOffset = point.distanceTo(middlePoint);
+//
+//   // var radius = radiusOffset + helix.radius || helix.radius;
+//
+//
+//   var _zOffset = zOffset || 0;
+//
+//   var Tpi = t*(Math.PI*2) * helix.rotations;
+//
+//   var tz = helix.height * t + _zOffset;
+//
+//   // can create conus instead of helix
+//   radius += tz/30;
+//
+//   var tx = Math.sin( Tpi ) * radius;
+//   var ty = Math.cos( Tpi ) * radius;
+//
+//   return new THREE.Vector3( tx, ty, tz );
+// }
+
 
 // SegCurve.prototype.getOffsets = function ( point ) {
 //   // debugger;
@@ -678,7 +767,7 @@ function Segment ( options ) {
 
   // Some basic geometry settings
   this._polygons = 100;
-  this._radialPolygons = 30;
+  this._radialPolygons = 90;
   this._closed = false;
 
   // Call it during init
@@ -689,6 +778,8 @@ function Segment ( options ) {
 Segment.prototype = {
 
   constructor: Segment,
+
+  _cache : 0,
 
   // Returns options of object for BE saving.
   getOptions : function () {
@@ -702,7 +793,7 @@ Segment.prototype = {
   },
 
   // TBD This should be possible to make smarter???
-  getCenterFromSurface: function(mousePoint, radiusOffset, zOffset) {
+  getCenterFromSurface: function( mousePoint, radiusOffset, zOffset) {
 
     var _radiusOffset =  radiusOffset || 0;
     var _zOffset =  zOffset || 0;
@@ -712,11 +803,8 @@ Segment.prototype = {
 
     // Get distance of surface point and this calculated inacurate point
     var distanceA = mousePoint.distanceTo( helix.curve.getPoint( T ) );
-    // this.getPointsDist(mousePoint, this.curve.getPoint(T, true));
-    var distanceB = distanceA;
 
-    // console.log( this.o.thickness +  " + " + distanceA +" + " + Math.acos( this.o.thickness / distanceA ) );
-    // console.log( Math.PI/2 - helix._angle + " =? " + Math.acos( this.o.thickness / distanceA ) + " asin = " + Math.asin( this.o.thickness / distanceA ));
+    var distanceB = distanceA;
 
     // Delta T is the step for finding the minimun distance
     var deltaT = 0.00005;
@@ -727,23 +815,202 @@ Segment.prototype = {
       direction = -1;
     }
 
+    var runs = 0;
     // I have to find minimal distance
+
     do {
+      runs++;
       distanceA = distanceB;
       T = T + deltaT*direction;
       distanceB = mousePoint.distanceTo( this.curve.getPoint(T, true));
     }
     while (distanceA > distanceB)
+    console.log(runs);
 
-    // console.log(this.curve.getOffsets(mousePoint));
-    // console.log("T "+ T);
     // I will substract the last step to get the minimal T
     return this.curve.getPoint(T - deltaT*direction, true, _radiusOffset, _zOffset);
   },
 
-  // There is function for this in THREE js so obsolete?
-  // getPointsDist: function (pA, pB) {
-  //   return (Math.sqrt(Math.pow((pB.x-pA.x),2)+Math.pow((pB.y-pA.y),2)+Math.pow((pB.z-pA.z),2)));
+  // Hybrid!
+  // HHgetCenterFromSurface: function( mousePoint, radiusOffset, zOffset) {
+  //
+  //   var _radiusOffset =  radiusOffset || 0;
+  //   var _zOffset =  zOffset || 0;
+  //
+  //   // get some inacurate center point based on simple Z coordinates
+  //   var T = this.getCloseTfroSurface( mousePoint );
+  //
+  //   // Get distance of surface point and this calculated inacurate point
+  //   var distanceA = mousePoint.distanceTo( helix.curve.getPoint( T ) );
+  //   // this.getPointsDist(mousePoint, this.curve.getPoint(T, true));
+  //   var distanceB = distanceA;
+  //
+  //   // console.log( this.o.thickness +  " + " + distanceA +" + " + Math.acos( this.o.thickness / distanceA ) );
+  //   // console.log( Math.PI/2 - helix._angle + " =? " + Math.acos( this.o.thickness / distanceA ) + " asin = " + Math.asin( this.o.thickness / distanceA ));
+  //
+  //   // Delta T is the step for finding the minimun distance
+  //   var deltaT = 0.00005;
+  //   var direction = 1;
+  //
+  //   // Am I under the center or above? If above we have to go down
+  //   if (distanceA < mousePoint.distanceTo( this.curve.getPoint(T+deltaT, true) ) ) {
+  //     direction = -1;
+  //   }
+  //
+  //   var runs= 0;
+  //
+  //   // I have to find minimal distance
+  //   do {
+  //     runs++;
+  //     distanceA = distanceB;
+  //     T = T + deltaT*direction;
+  //     distanceB = mousePoint.distanceTo( this.curve.getPoint(T, true));
+  //   }
+  //   while (distanceA > distanceB)
+  //
+  //   // console.log(this.curve.getOffsets(mousePoint));
+  //   // console.log("T "+ T);
+  //   // I will substract the last step to get the minimal T
+  //   console.log(runs);
+  //   return this.curve.getPoint(T - deltaT*direction, true, _radiusOffset, _zOffset);
+  // },
+
+  // getCloseTfroSurface: function ( surfacePoint ) {
+  //
+  //   var mousePointRadius = Math.sqrt(surfacePoint.x*surfacePoint.x + surfacePoint.y*surfacePoint.y);
+  //
+  //   var mouseRoffset =  mousePointRadius - helix.radius;
+  //
+  //   var psi = Math.PI/2 - helix._angle;
+  //
+  //   var tA = Math.sqrt( this.o.thickness*this.o.thickness - mouseRoffset*mouseRoffset );
+  //
+  //   return tA;
+  // },
+  //
+  // EXPgetCenterFromSurface: function( mousePoint ) {
+  //
+  //   var T = this.o.helix.getTFromZ(mousePoint.z);
+  //
+  //   var mousePointRadius = Math.sqrt(mousePoint.x*mousePoint.x + mousePoint.y*mousePoint.y);
+  //
+  //   var mouseRoffset =  mousePointRadius - helix.radius;
+  //
+  //   var psi = Math.PI/2 - helix._angle;
+  //
+  //   var tA = Math.sqrt( this.o.thickness*this.o.thickness - mouseRoffset*mouseRoffset );
+  //
+  //   var deltaZ1 =  tA;
+  //
+  //   console.log( "mouseRoffset> "+ mouseRoffset );
+  //   console.log( "psi> "+ psi );
+  //   console.log( "tA> "+ tA  );
+  //   console.log( "deltaZ1> "+ deltaZ1 );
+  //   var vT = helix.curve.XXXgetT(mousePoint);
+  //
+  //   console.log( vT.Tx, vT.Ty, vT.Tz);
+  //
+  //   // console.log( "gamma> "+ THREE.Math.radToDeg(gamma) );
+  //   console.log( "============================" );
+  //
+  //   // Get distance of surface point and this calculated inacurate point
+  //   var distanceA = mousePoint.distanceTo( helix.curve.getPoint( T ) );
+  //
+  //   var deltaT = 0.00005;
+  //   var direction = 1;
+  //
+  //   // Am I under the center or above? If above we have to go down
+  //   if (distanceA < mousePoint.distanceTo( this.curve.getPoint(T+deltaT, true) ) ) {
+  //     direction = -1;
+  //   }
+  //
+  //   T = helix.getTFromZ( mousePoint.z + deltaZ1*direction );
+  //   console.log(T);
+  //   return helix.curve.getPoint(T, true);;
+  // },
+  //
+  //
+  // // Experimental
+  // _1getCenterFromSurface: function( mousePoint ) {
+  //
+  //   var circleLen = 2*Math.PI*helix.radius;
+  //   var ZperCircle = helix.height / helix.rotations;
+  //
+  //   // get some inacurate center point based on simple Z coordinates
+  //   var T = this.o.helix.getTFromZ(mousePoint.z);
+  //
+  //   var mousePointRadius = Math.sqrt(mousePoint.x*mousePoint.x + mousePoint.y*mousePoint.y);
+  //
+  //   var mouseRoffset = mousePointRadius - helix.radius + 1;
+  //
+  //   var psi = Math.PI/2 - helix._angle;
+  //
+  //   var tA = Math.sqrt( this.o.thickness*this.o.thickness - mouseRoffset*mouseRoffset );
+  //
+  //
+  //   var deltaZ1 = Math.sin( psi ) * tA;
+  //
+  //
+  //   var gamma = Math.acos( mouseRoffset / this.o.thickness );
+  //
+  //
+  //   // Get distance of surface point and this calculated inacurate point
+  //   var distanceA = mousePoint.distanceTo( helix.curve.getPoint( T ) );
+  //
+  //   var deltaZ = Math.sqrt(distanceA*distanceA - this.o.thickness*this.o.thickness);
+  //   var calcDist =  Math.sin(helix._angle)*deltaZ ;
+  //
+  //   var angleDelta = Math.acos( this.o.thickness / distanceA);
+  //
+  //   console.log( "Math.sin(helix._angle)> "+ Math.sin(helix._angle)  );
+  //   console.log( "psi> "+ psi );
+  //   console.log( "deltaZ1> "+ deltaZ1 );
+  //   console.log( "mouseRoffset> "+ mouseRoffset );
+  //
+  //   var vT = helix.curve.XXXgetT(mousePoint);
+  //
+  //   console.log( vT.Tx, vT.Ty, vT.Tz);
+  //
+  //   console.log( "gamma> "+ THREE.Math.radToDeg(gamma) );
+  //   console.log( "============================" );
+  //
+  //   //
+  //   // lineX.geometry.vertices = [ mousePoint, helix.curve.getPoint( T ) ];
+  //   // lineX.geometry.verticesNeedUpdate = true;
+  //   //
+  //   //
+  //   // sphereInter.position.copy( helix.curve.getPoint( T ) );
+  //   // this.getPointsDist(mousePoint, this.curve.getPoint(T, true));
+  //   var distanceB = distanceA;
+  //
+  //
+  //
+  //   // Delta T is the step for finding the minimun distance
+  //   var deltaT = 0.00005;
+  //   var direction = 1;
+  //
+  //   // Am I under the center or above? If above we have to go down
+  //   if (distanceA < mousePoint.distanceTo( this.curve.getPoint(T+deltaT, true) ) ) {
+  //     direction = -1;
+  //   }
+  //
+  //   T = helix.getTFromZ( mousePoint.z + deltaZ1*direction );
+  //   console.log(T);
+  //   // I have to find minimal distance
+  //   // do {
+  //   //   distanceA = distanceB;
+  //   //   T = T + deltaT*direction;
+  //   //   distanceB = mousePoint.distanceTo( this.curve.getPoint(T, true));
+  //   // }
+  //   // while (distanceA > distanceB)
+  //
+  //   // var circlePart = circleLen * ( calcDist / ZperCircle  );
+  //   //
+  //   // var endPoint = this.curve.getPoint( helix.getTFromZ( mousePoint.z + calcDist*direction ), true );
+  //   //
+  //   // console.log(calcDist + "|" + (endPoint.z + mousePoint.z ));
+  //
+  //   return helix.curve.getPoint(T - deltaT*direction, true);;
   // },
 
   // Is reducing polygons based on ration of segment to whole helix
@@ -962,8 +1229,11 @@ function Helix (scene, segmentConst, birthDate) {
     this.height = (this.endDate - this.startDate) / this.heightReduce;
     this.rotations = now.getFullYear() - this.birthDate.getFullYear() + 1;
 
-    this._angle = Math.atan( this.height / (2*Math.PI*this.radius) );
+    this._angle = Math.atan( this.height / ( 2*Math.PI*this.radius*this.rotations) );
 
+    this._length = Math.sqrt(this.height*this.height + (2*Math.PI*this.radius*this.rotations)*( 2*Math.PI*this.radius*this.rotations))
+
+    console.log(this._angle);
 
     // this.setCameraToLookAtMe();
 
@@ -1094,7 +1364,11 @@ function Helix (scene, segmentConst, birthDate) {
   addSegmentToScene : function ( options ) {
 
     options.helix = this;
-    // debugger;
+
+    // DEBUG ONLY
+    // options.opacity = 0.5;
+    //
+
     var newSegment = new this.segmentConstructor( options );
 
     newSegment.create3Dsegment();
@@ -1482,6 +1756,10 @@ Panel.prototype = {
     this._createPlane();
     this.o.uuid = this.plane.uuid;
 
+    // DEBUG
+    this.plane.visible = false;
+    // DEBUG
+
     this._setMathPlane();
 
     // In case we already has html. Like when loaded from BE.
@@ -1748,7 +2026,7 @@ Panel.prototype = {
 
     newPoints.push( _secondPoint );
 
-    this.line.geometry.vertices = newPoints;
+    this.line.geometry.vertices = [ _firstPoint, _secondPoint ];
 
     this.line.geometry.verticesNeedUpdate = true;
   },
